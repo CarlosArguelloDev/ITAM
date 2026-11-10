@@ -33,6 +33,8 @@ import {
   RefreshCw,
   Box,
   Share2,
+  Eye,
+  QrCode,
 } from 'lucide-react';
 
 import { User, Asset, UserDiagramResponse, AssetHistory, AlertItem } from '../types';
@@ -40,6 +42,7 @@ import { api } from '../api';
 import { ResponsivaModal } from '../components/ResponsivaModal';
 import { SwapModal } from '../components/SwapModal';
 import { UserFormModal } from '../components/UserFormModal';
+import { QuickUserAuditModal } from '../components/QuickUserAuditModal';
 
 // --- NODOS PERSONALIZADOS PARA REACT FLOW ---
 const CustomUserNode = ({ data }: { data: any }) => (
@@ -148,6 +151,9 @@ export const UsersDiagramView: React.FC = () => {
 
   // Modal para crear usuario
   const [userModalOpen, setUserModalOpen] = useState(false);
+
+  // Modal para auditoría rápida dirigida al usuario
+  const [auditTargetUser, setAuditTargetUser] = useState<User | null>(null);
 
   // Datos para el diagrama cuando un usuario está seleccionado
   const [diagramData, setDiagramData] = useState<UserDiagramResponse | null>(null);
@@ -431,7 +437,7 @@ export const UsersDiagramView: React.FC = () => {
                   <th className="py-3 px-6">Equipos Asignados en Custodia</th>
                   <th className="py-3 px-3 text-center">Total</th>
                   <th className="py-3 px-4 text-center">Estatus</th>
-                  <th className="py-3 px-6 text-right">Diagrama</th>
+                  <th className="py-3 px-6 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -563,18 +569,33 @@ export const UsersDiagramView: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Acción Ver Diagrama */}
+                      {/* Acciones: Ver Ficha/Diagrama y Auditoría Rápida */}
                       <td className="py-3.5 px-6 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedUserId(u.id);
-                          }}
-                          className="inline-flex items-center gap-1.5 bg-white hover:bg-sky-50 text-sky-700 hover:text-sky-800 border border-sky-200 font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs transition group-hover:bg-sky-600 group-hover:text-white group-hover:border-sky-600"
-                        >
-                          <Share2 className="w-3.5 h-3.5" />
-                          <span>Ver Diagrama</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedUserId(u.id);
+                            }}
+                            className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold text-xs px-2.5 py-1.5 rounded-lg shadow-xs transition hover:text-slate-900"
+                            title="Ver diagrama de equipos y ficha del colaborador"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-slate-600" />
+                            <span>Ver</span>
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAuditTargetUser(u);
+                            }}
+                            className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs transition hover:shadow"
+                            title="Iniciar escaneo físico y auditoría rápida"
+                          >
+                            <QrCode className="w-3.5 h-3.5" />
+                            <span>Auditoría</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -599,6 +620,17 @@ export const UsersDiagramView: React.FC = () => {
             onUserSaved={(newUser) => {
               loadUsers();
               setSelectedUserId(newUser.id);
+            }}
+          />
+        )}
+
+        {/* Modal Auditoría Rápida de Hardware */}
+        {auditTargetUser && (
+          <QuickUserAuditModal
+            user={auditTargetUser}
+            onClose={() => setAuditTargetUser(null)}
+            onAuditFinished={() => {
+              loadUsers();
             }}
           />
         )}
@@ -639,6 +671,16 @@ export const UsersDiagramView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {currentUser && (
+            <button
+              onClick={() => setAuditTargetUser(currentUser)}
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl shadow-xs transition"
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              <span>Auditoría Rápida</span>
+            </button>
+          )}
+
           <button
             onClick={() => setResponsivaModalOpen(true)}
             className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl shadow-xs transition"
@@ -905,6 +947,18 @@ export const UsersDiagramView: React.FC = () => {
           userId={selectedUserId}
           onClose={() => setResponsivaModalOpen(false)}
           onUploadSuccess={() => {
+            if (selectedUserId) loadUserDetails(selectedUserId);
+          }}
+        />
+      )}
+
+      {/* Modal Auditoría Rápida de Hardware */}
+      {auditTargetUser && (
+        <QuickUserAuditModal
+          user={auditTargetUser}
+          onClose={() => setAuditTargetUser(null)}
+          onAuditFinished={() => {
+            loadUsers();
             if (selectedUserId) loadUserDetails(selectedUserId);
           }}
         />
