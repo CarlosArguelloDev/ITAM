@@ -1,0 +1,22 @@
+# Binarios compilados
+opti-itam
+opti-itam.exe
+*.exe
+
+# Base de datos y archivos de datos locales
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/uploads/*
+!data/uploads/.gitkeep
+
+# Node.js
+web/node_modules/
+web/dist/
+web/.vite/
+npm-debug.log*
+
+# Temporales y logs
+*.log
+.DS_Store
+Thumbs.db

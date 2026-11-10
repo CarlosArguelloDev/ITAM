@@ -1,0 +1,33 @@
+services:
+  itam:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TARGETARCH: arm64
+    container_name: opti-itam
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DB_PATH=/app/data/opti.db
+      - UPLOADS_DIR=/app/data/uploads
+      - TZ=America/Mexico_City
+    volumes:
+      # Persistencia en host del archivo SQLite y uploads escaneados
+      - ./data:/app/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          # Límite estricto de memoria: demostrado para funcionar con menos de 40 MB
+          memory: 80M
+        reservations:
+          memory: 30M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
