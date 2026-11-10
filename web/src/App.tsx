@@ -103,7 +103,6 @@ export const App: React.FC = () => {
           title={headerInfo.title}
           subtitle={headerInfo.subtitle}
           onOpenScanner={() => setScannerOpen(true)}
-          activeCampaignName={activeCampaign?.name}
         />
 
         {/* Vista Actual */}
