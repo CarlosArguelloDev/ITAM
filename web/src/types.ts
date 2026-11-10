@@ -14,6 +14,11 @@ export interface User {
   is_active: boolean;
   created_at: string;
   assigned_assets?: Asset[];
+  assets_count?: number;
+  laptops_count?: number;
+  monitors_count?: number;
+  dockings_count?: number;
+  peripherals_count?: number;
 }
 
 export interface Asset {
