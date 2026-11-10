@@ -96,12 +96,20 @@ export interface AuditCampaign {
   id: string;
   name: string;
   target_location: string;
+  target_type?: 'USER' | 'LOCATION';
+  target_id?: string;
+  target_name?: string;
   status: 'OPEN' | 'CLOSED';
   created_at: string;
   closed_at?: string;
-  total_scans: number;
+  total_expected?: number;
+  total_scanned: number;
+  total_matches?: number;
+  total_missing?: number;
   discrepancies_count: number;
   resolved_count: number;
+  notes?: string;
+  scans?: AuditScan[];
 }
 
 export interface AuditScan {
@@ -118,8 +126,9 @@ export interface AuditScan {
   found_with_user_name?: string;
   expected_location: string;
   found_location: string;
-  discrepancy_type: DiscrepancyType;
+  discrepancy_type: DiscrepancyType | 'UNASSIGNED' | 'UNASSIGNED_LOCATION';
   resolved: boolean;
+  notes?: string;
   scanned_at: string;
 }
 
