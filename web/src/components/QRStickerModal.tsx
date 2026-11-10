@@ -47,7 +47,7 @@ export const QRStickerModal: React.FC<QRStickerModalProps> = ({ asset, onClose }
               <span className="text-[10px] font-bold tracking-wider uppercase text-sky-700">
                 PROPIEDAD DE TI
               </span>
-              <span className="text-[9px] font-mono text-slate-400">ITAM-ARM64</span>
+              <span className="text-[9px] font-mono text-slate-400">CONTROL TI</span>
             </div>
 
             {/* Código QR */}

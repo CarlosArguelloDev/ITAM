@@ -171,7 +171,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
               {assetToEdit ? 'Editar Activo de TI' : 'Alta de Nuevo Activo'}
             </h3>
             <p className="text-xs text-slate-500">
-              Registra hardware y especificaciones dinámicas en SQLite
+              Ingresa los datos generales y especificaciones del equipo
             </p>
           </div>
           <button
