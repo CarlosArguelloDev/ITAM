@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   Bell,
   FileText,
-  Cpu,
 } from 'lucide-react';
 
 export type NavView = 'dashboard' | 'assets' | 'users' | 'discrepancies' | 'alerts' | 'documents';
@@ -101,24 +100,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
         </nav>
-      </div>
-
-      {/* Embedded Raspberry Pi Footer Status */}
-      <div className="p-4 m-3 rounded-xl bg-slate-50 border border-slate-200">
-        <div className="flex items-center gap-2 mb-1.5">
-          <Cpu className="w-4 h-4 text-emerald-600" />
-          <span className="text-xs font-semibold text-slate-700">Raspberry Pi (ARM64)</span>
-        </div>
-        <div className="flex items-center justify-between text-[11px] text-slate-500">
-          <span>Memoria estimada:</span>
-          <span className="font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-            &lt; 35 MB RAM
-          </span>
-        </div>
-        <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between border-t border-slate-200 pt-1.5">
-          <span>Engine: Go 1.23 + WAL</span>
-          <span>v1.0.0</span>
-        </div>
       </div>
     </aside>
   );

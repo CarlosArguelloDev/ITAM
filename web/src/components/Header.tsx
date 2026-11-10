@@ -1,5 +1,5 @@
 import React from 'react';
-import { QrCode, ShieldCheck, Activity } from 'lucide-react';
+import { QrCode } from 'lucide-react';
 
 interface HeaderProps {
   title: string;
@@ -23,16 +23,11 @@ export const Header: React.FC<HeaderProps> = ({
 
       <div className="flex items-center gap-3">
         {activeCampaignName && (
-          <div className="hidden md:flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-3 py-1.5 rounded-full font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Campaña: {activeCampaignName}</span>
+          <div className="hidden md:flex items-center gap-2 bg-slate-50 border border-slate-200 text-slate-700 text-xs px-3 py-1.5 rounded-full font-medium">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span>Auditoría: {activeCampaignName}</span>
           </div>
         )}
-
-        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 text-slate-600 text-xs px-2.5 py-1.5 rounded-lg">
-          <Activity className="w-3.5 h-3.5 text-sky-600" />
-          <span>SQLite WAL</span>
-        </div>
 
         <button
           onClick={onOpenScanner}

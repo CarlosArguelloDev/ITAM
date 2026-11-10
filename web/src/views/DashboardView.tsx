@@ -58,12 +58,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
       {/* Banner Superior de Bienvenida y Acciones Rápidas */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 to-slate-800 p-6 rounded-2xl text-white shadow-sm">
         <div>
-          <span className="text-xs font-semibold text-sky-400 uppercase tracking-wider">
-            Arquitectura Ultraligera • Raspberry Pi (ARM64)
-          </span>
-          <h2 className="text-xl font-bold mt-1">Control de Custodia e Inventario de TI</h2>
-          <p className="text-xs text-slate-300 mt-0.5">
-            Conciliación física vs. lógica, trazabilidad inmutable y cartas de responsiva.
+          <h2 className="text-xl font-bold">Control de Custodia e Inventario de TI</h2>
+          <p className="text-xs text-slate-300 mt-1">
+            Conciliación de inventario, trazabilidad de equipos y gestión de responsivas.
           </p>
         </div>
         <div className="flex items-center gap-3">
