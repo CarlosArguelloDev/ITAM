@@ -340,6 +340,59 @@ func (h *AppHandler) ScanAsset(w http.ResponseWriter, r *http.Request) {
 	JSONResponse(w, http.StatusOK, scanResult)
 }
 
+// ListAllDiscrepancies lista todas las discrepancias del sistema para el centro de resolución
+func (h *AppHandler) ListAllDiscrepancies(w http.ResponseWriter, r *http.Request) {
+	resolvedParam := r.URL.Query().Get("resolved")
+
+	query := `
+		SELECT s.id, s.campaign_id, c.name AS campaign_name, s.asset_id, a.asset_tag, a.brand, a.model, a.category,
+		       s.expected_user_id, eu.full_name AS expected_user_name,
+		       s.found_with_user_id, fu.full_name AS found_with_user_name,
+		       s.expected_location, s.found_location, s.discrepancy_type, s.resolved, s.notes, s.scanned_at
+		FROM audit_scans s
+		JOIN assets a ON s.asset_id = a.id
+		JOIN audit_campaigns c ON s.campaign_id = c.id
+		LEFT JOIN users eu ON s.expected_user_id = eu.id
+		LEFT JOIN users fu ON s.found_with_user_id = fu.id
+		WHERE s.discrepancy_type != 'MATCH'
+	`
+	args := []interface{}{}
+	if resolvedParam == "false" || resolvedParam == "0" {
+		query += " AND s.resolved = 0"
+	} else if resolvedParam == "true" || resolvedParam == "1" {
+		query += " AND s.resolved = 1"
+	}
+
+	query += " ORDER BY s.resolved ASC, s.scanned_at DESC"
+
+	rows, err := h.DB.Query(query, args...)
+	if err != nil {
+		ErrorResponse(w, http.StatusInternalServerError, "Error al consultar discrepancias: "+err.Error())
+		return
+	}
+	defer rows.Close()
+
+	scans := []models.AuditScan{}
+	for rows.Next() {
+		var s models.AuditScan
+		var campName string
+		var resInt int
+		var notes *string
+		if err := rows.Scan(
+			&s.ID, &s.CampaignID, &campName, &s.AssetID, &s.AssetTag, &s.AssetBrand, &s.AssetModel, &s.AssetCategory,
+			&s.ExpectedUserID, &s.ExpectedUserName,
+			&s.FoundWithUserID, &s.FoundWithUserName,
+			&s.ExpectedLocation, &s.FoundLocation, &s.DiscrepancyType, &resInt, &notes, &s.ScannedAt,
+		); err == nil {
+			s.Resolved = resInt == 1
+			s.Notes = notes
+			scans = append(scans, s)
+		}
+	}
+
+	JSONResponse(w, http.StatusOK, scans)
+}
+
 // ListDiscrepancies lista todas las discrepancias de una campaña, incluyendo los MISSING
 func (h *AppHandler) ListDiscrepancies(w http.ResponseWriter, r *http.Request) {
 	campaignID := chi.URLParam(r, "id")
@@ -517,6 +570,19 @@ func (h *AppHandler) ResolveDiscrepancy(w http.ResponseWriter, r *http.Request) 
 		}
 
 		histNotes = fmt.Sprintf("Conciliación de auditoría: Activo marcado como extraviado (LOST). %s", req.Notes)
+
+	case "MAINTENANCE":
+		_, err = tx.Exec(`
+			UPDATE assets
+			SET status = 'MAINTENANCE', assigned_to_user_id = NULL, parent_asset_id = NULL
+			WHERE id = ?
+		`, s.AssetID)
+		if err != nil {
+			ErrorResponse(w, http.StatusInternalServerError, "Error al enviar a mantenimiento: "+err.Error())
+			return
+		}
+
+		histNotes = fmt.Sprintf("Conciliación de auditoría: Activo enviado a mantenimiento. %s", req.Notes)
 
 	case "KEEP_LOGICAL":
 		histNotes = fmt.Sprintf("Conciliación de auditoría: Se mantuvo inventario lógico tras revisión manual. %s", req.Notes)
