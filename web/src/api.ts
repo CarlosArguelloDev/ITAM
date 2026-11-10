@@ -128,14 +128,21 @@ export const api = {
   // Auditoría Dirigida por Persona o Locación/Site
   getTargetExpectedAssets: (type: 'USER' | 'LOCATION', target: string) =>
     fetchJSON<Asset[]>(`/audits/target-assets?type=${type}&target=${encodeURIComponent(target)}`),
-  scanTargetAsset: (data: { target_type: 'USER' | 'LOCATION'; target_id: string; target_name: string; asset_tag: string }) =>
+  scanTargetAsset: (data: { campaign_id?: string; target_type: 'USER' | 'LOCATION'; target_id: string; target_name: string; asset_tag: string }) =>
     fetchJSON<{
+      campaign_id: string;
       asset: Asset;
       discrepancy_type: 'MATCH' | 'WRONG_USER' | 'WRONG_LOCATION' | 'UNASSIGNED' | 'UNASSIGNED_LOCATION';
       message: string;
       scanned_at: string;
     }>('/audits/target-scan', { method: 'POST', body: JSON.stringify(data) }),
+  finishTargetAudit: (data: { campaign_id: string; notes?: string }) =>
+    fetchJSON<AuditCampaign>('/audits/target-finish', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   reconcileTargetAsset: (data: {
+    campaign_id?: string;
     action: 'ASSIGN_TO_TARGET' | 'MARK_LOST';
     asset_id: string;
     target_type: 'USER' | 'LOCATION';
