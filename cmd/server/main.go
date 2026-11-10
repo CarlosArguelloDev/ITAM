@@ -127,6 +127,11 @@ func main() {
 			aud.Post("/campaigns/{id}/scan", appHandler.ScanAsset)
 			aud.Get("/campaigns/{id}/discrepancies", appHandler.ListDiscrepancies)
 			aud.Post("/discrepancies/{id}/resolve", appHandler.ResolveDiscrepancy)
+
+			// Auditoría Dirigida por Persona o Sede/Site
+			aud.Get("/target-assets", appHandler.GetTargetExpectedAssets)
+			aud.Post("/target-scan", appHandler.ScanTargetAsset)
+			aud.Post("/target-reconcile", appHandler.ReconcileTargetAsset)
 		})
 	})
 
