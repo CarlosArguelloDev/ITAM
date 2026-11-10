@@ -1,327 +1,115 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  User as UserIcon,
-  MapPin,
-  QrCode,
-  Camera,
-  CheckCircle2,
   AlertTriangle,
+  CheckCircle2,
   XCircle,
+  HelpCircle,
+  Search,
+  Filter,
+  RefreshCw,
+  ArrowRight,
+  ShieldAlert,
   Laptop,
   Monitor,
   Cpu,
   Headphones,
   Box,
-  RefreshCw,
+  Wrench,
   Check,
-  ArrowRight,
-  ShieldCheck,
-  Zap,
-  History,
-  FileText,
-  Printer,
-  Eye,
-  CheckCheck,
+  UserCheck,
 } from 'lucide-react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
-import { User, Asset, AuditCampaign } from '../types';
+import { AuditScan, DiscrepancyType } from '../types';
 import { api } from '../api';
-import { AuditReportModal } from '../components/AuditReportModal';
 
-type AuditMode = 'USER' | 'LOCATION';
-type SubTab = 'ACTIVE' | 'HISTORY';
-
-interface ScannedItemRecord {
-  asset: Asset;
-  discrepancyType: 'MATCH' | 'WRONG_USER' | 'WRONG_LOCATION' | 'UNASSIGNED' | 'UNASSIGNED_LOCATION';
-  message: string;
-  scannedAt: Date;
-}
-
-export const DiscrepanciesView: React.FC<{ onOpenScanner?: () => void }> = () => {
-  const [subTab, setSubTab] = useState<SubTab>('ACTIVE');
-  const [mode, setMode] = useState<AuditMode>('USER');
-
-  // Datos de apoyo
-  const [users, setUsers] = useState<User[]>([]);
-  const [locations, setLocations] = useState<string[]>([]);
-
-  // Objetivo seleccionado
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [selectedLocation, setSelectedLocation] = useState<string>('Site 1 TI');
-
-  // Campaña / Sesión activa en base de datos
-  const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
-
-  // Inventario esperado y escaneado
-  const [expectedAssets, setExpectedAssets] = useState<Asset[]>([]);
-  const [scannedRecords, setScannedRecords] = useState<ScannedItemRecord[]>([]);
-
-  // Escáner en vivo
-  const [inputTag, setInputTag] = useState('');
-  const [cameraActive, setCameraActive] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [finishing, setFinishing] = useState(false);
-  const [lastNotification, setLastNotification] = useState<{ type: 'success' | 'warn' | 'error'; message: string } | null>(null);
-
-  // Historial de auditorías pasadas
-  const [campaignsHistory, setCampaignsHistory] = useState<AuditCampaign[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-  const [selectedReportCampaign, setSelectedReportCampaign] = useState<AuditCampaign | null>(null);
-
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+export const DiscrepanciesView: React.FC<{ onDiscrepancyResolved?: () => void }> = ({
+  onDiscrepancyResolved,
+}) => {
+  const [discrepancies, setDiscrepancies] = useState<AuditScan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'PENDING' | 'ALL'>('PENDING');
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    loadInitialData();
-    loadHistory();
-  }, []);
+    loadDiscrepancies();
+  }, [statusFilter]);
 
-  useEffect(() => {
-    loadExpected();
-  }, [mode, selectedUserId, selectedLocation]);
-
-  useEffect(() => {
-    if (cameraActive && subTab === 'ACTIVE') {
-      const scanner = new Html5QrcodeScanner(
-        'target-camera-container',
-        { fps: 10, qrbox: { width: 240, height: 240 }, aspectRatio: 1.0 },
-        false
-      );
-
-      scanner.render(
-        (decodedText) => {
-          let tag = decodedText.trim();
-          if (tag.includes('/audit/scan/')) {
-            const parts = tag.split('/audit/scan/');
-            tag = parts[parts.length - 1];
-          }
-          processScan(tag);
-        },
-        () => {}
-      );
-
-      scannerRef.current = scanner;
-
-      return () => {
-        scanner.clear().catch(() => {});
-      };
-    }
-  }, [cameraActive, mode, selectedUserId, selectedLocation, subTab]);
-
-  const loadInitialData = async () => {
+  const loadDiscrepancies = async () => {
     try {
-      const [allUsers, stats] = await Promise.all([
-        api.getUsers({ active: true }),
-        api.getStats().catch(() => null),
-      ]);
-      setUsers(allUsers);
-      if (allUsers.length > 0) {
-        setSelectedUserId(allUsers[0].id);
-      }
-
-      if (stats?.location_counts) {
-        const locs = Object.keys(stats.location_counts);
-        if (!locs.includes('Site 1 TI')) locs.unshift('Site 1 TI');
-        setLocations(locs);
-      } else {
-        setLocations(['Site 1 TI', 'CDMX Central', 'Monterrey Hub', 'Bodega de Sistemas']);
-      }
+      setLoading(true);
+      const isResolvedParam = statusFilter === 'PENDING' ? false : undefined;
+      const data = await api.getAllDiscrepancies(isResolvedParam);
+      setDiscrepancies(data);
     } catch (err) {
-      console.error('Error cargando datos de auditoría:', err);
-    }
-  };
-
-  const loadHistory = async () => {
-    try {
-      setLoadingHistory(true);
-      const data = await api.getCampaigns();
-      setCampaignsHistory(data);
-    } catch (err) {
-      console.error('Error cargando historial de auditorías:', err);
+      console.error('Error cargando discrepancias:', err);
     } finally {
-      setLoadingHistory(false);
+      setLoading(false);
     }
   };
 
-  const loadExpected = async () => {
-    setScannedRecords([]);
-    setLastNotification(null);
-    setActiveCampaignId(null);
-
-    const target = mode === 'USER' ? selectedUserId : selectedLocation;
-    if (!target) {
-      setExpectedAssets([]);
-      return;
-    }
-
+  const handleResolve = async (
+    scanId: string,
+    action: 'ACCEPT_PHYSICAL' | 'MARK_LOST' | 'MAINTENANCE' | 'KEEP_LOGICAL',
+    assetTag: string
+  ) => {
     try {
-      const assets = await api.getTargetExpectedAssets(mode, target);
-      setExpectedAssets(assets);
-    } catch (err) {
-      console.error('Error cargando inventario esperado:', err);
-      setExpectedAssets([]);
-    }
-  };
+      setResolvingId(scanId);
+      setSuccessMessage(null);
 
-  const getTargetName = () => {
-    if (mode === 'USER') {
-      const u = users.find((user) => user.id === selectedUserId);
-      return u ? `${u.full_name} (${u.employee_code})` : 'Colaborador';
-    }
-    return selectedLocation;
-  };
+      let actionLabel = 'resuelta';
+      if (action === 'ACCEPT_PHYSICAL') actionLabel = 'reasignada al usuario/ubicación física encontrada';
+      if (action === 'MARK_LOST') actionLabel = 'marcada como extraviada (LOST)';
+      if (action === 'MAINTENANCE') actionLabel = 'enviada a mantenimiento';
+      if (action === 'KEEP_LOGICAL') actionLabel = 'mantenida lógicamente y cerrada';
 
-  const processScan = async (tagToScan: string) => {
-    const cleanTag = tagToScan.trim();
-    if (!cleanTag) return;
-
-    const targetId = mode === 'USER' ? selectedUserId : selectedLocation;
-    const targetName = getTargetName();
-
-    try {
-      setScanning(true);
-      setLastNotification(null);
-
-      const res = await api.scanTargetAsset({
-        campaign_id: activeCampaignId || undefined,
-        target_type: mode,
-        target_id: targetId,
-        target_name: targetName,
-        asset_tag: cleanTag,
-      });
-
-      // Guardar el campaign_id activo asignado por el backend
-      if (res.campaign_id) {
-        setActiveCampaignId(res.campaign_id);
-      }
-
-      const newRecord: ScannedItemRecord = {
-        asset: res.asset,
-        discrepancyType: res.discrepancy_type,
-        message: res.message,
-        scannedAt: new Date(res.scanned_at),
-      };
-
-      setScannedRecords((prev) => {
-        const filtered = prev.filter((r) => r.asset.id !== res.asset.id);
-        return [newRecord, ...filtered];
-      });
-
-      if (res.discrepancy_type === 'MATCH') {
-        setLastNotification({
-          type: 'success',
-          message: `¡Verificado en base de datos! ${res.asset.asset_tag} (${res.asset.model}) coincide correctamente.`,
-        });
-      } else {
-        setLastNotification({
-          type: 'warn',
-          message: `Discrepancia registrada: ${res.message}`,
-        });
-      }
-
-      setInputTag('');
-    } catch (err: any) {
-      setLastNotification({
-        type: 'error',
-        message: err.message || 'Error al escanear activo',
-      });
-    } finally {
-      setScanning(false);
-    }
-  };
-
-  const handleManualScan = (e: React.FormEvent) => {
-    e.preventDefault();
-    processScan(inputTag);
-  };
-
-  // Reconciliación en 1 clic
-  const handleReconcile = async (assetId: string, action: 'ASSIGN_TO_TARGET' | 'MARK_LOST') => {
-    const targetId = mode === 'USER' ? selectedUserId : selectedLocation;
-    try {
-      await api.reconcileTargetAsset({
-        campaign_id: activeCampaignId || undefined,
+      await api.resolveDiscrepancy(scanId, {
         action,
-        asset_id: assetId,
-        target_type: mode,
-        target_id: targetId,
-        notes: action === 'ASSIGN_TO_TARGET' ? `Asignado a ${getTargetName()} en auditoría física` : 'Marcado como LOST en auditoría',
+        notes: `Resuelto en Centro de Discrepancias: Acción ${action}`,
       });
 
-      await loadExpected();
-      setLastNotification({
-        type: 'success',
-        message: action === 'ASSIGN_TO_TARGET' ? 'Activo reasignado a este objetivo exitosamente.' : 'Activo marcado como LOST.',
-      });
+      setSuccessMessage(`Activo ${assetTag}: discrepancia ${actionLabel} exitosamente.`);
+      await loadDiscrepancies();
+
+      if (onDiscrepancyResolved) {
+        onDiscrepancyResolved();
+      }
     } catch (err: any) {
-      alert(err.message || 'Error al reconciliar activo');
-    }
-  };
-
-  // Finalizar y Guardar Auditoría en SQLite de forma inmutable
-  const handleFinishAudit = async () => {
-    if (!activeCampaignId && scannedRecords.length === 0) {
-      alert('Debes escanear al menos un equipo antes de cerrar la auditoría.');
-      return;
-    }
-
-    const missingCount = expectedAssets.length - verifiedAssetIds.length;
-    const confirmMsg = `¿Deseas cerrar y guardar formalmente esta auditoría de ${getTargetName()}?\n\n` +
-      `• Equipos verificados: ${verifiedAssetIds.length}\n` +
-      `• Equipos faltantes: ${missingCount}\n` +
-      `• Discrepancias encontradas: ${unexpectedScannedRecords.length}\n\n` +
-      `Los resultados se guardarán permanentemente en la base de datos SQLite y en el historial de cada equipo.`;
-
-    if (!window.confirm(confirmMsg)) return;
-
-    try {
-      setFinishing(true);
-      const finishedCampaign = await api.finishTargetAudit({
-        campaign_id: activeCampaignId!,
-        notes: `Auditoría física completada para ${getTargetName()}. Verificados: ${verifiedAssetIds.length}, Faltantes: ${missingCount}`,
-      });
-
-      // Recargar historial y mostrar acta
-      await loadHistory();
-      setSelectedReportCampaign(finishedCampaign);
-
-      // Limpiar sesión activa
-      setActiveCampaignId(null);
-      setScannedRecords([]);
-      await loadExpected();
-    } catch (err: any) {
-      alert(err.message || 'Error al finalizar auditoría');
+      alert(err.message || 'Error al resolver la discrepancia');
     } finally {
-      setFinishing(false);
+      setResolvingId(null);
     }
   };
 
-  // Ver acta histórica
-  const handleViewHistoricalReport = async (campaignId: string) => {
-    try {
-      const camp = await api.getCampaign(campaignId);
-      setSelectedReportCampaign(camp);
-    } catch (err: any) {
-      alert(err.message || 'Error al consultar acta de auditoría');
-    }
-  };
+  // Filtrado
+  const filteredDiscrepancies = discrepancies.filter((d) => {
+    const matchSearch =
+      !searchQuery.trim() ||
+      d.asset_tag.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      d.asset_model.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.expected_user_name && d.expected_user_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (d.found_with_user_name && d.found_with_user_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      d.expected_location.toLowerCase().includes(searchQuery.toLowerCase());
 
-  // Conteos
-  const verifiedAssetIds = scannedRecords
-    .filter((r) => r.discrepancyType === 'MATCH')
-    .map((r) => r.asset.id);
+    const matchType = typeFilter === 'ALL' || d.discrepancy_type === typeFilter;
+    return matchSearch && matchType;
+  });
 
-  const missingExpectedAssets = expectedAssets.filter((a) => !verifiedAssetIds.includes(a.id));
-  const unexpectedScannedRecords = scannedRecords.filter((r) => r.discrepancyType !== 'MATCH');
+  // Métricas
+  const pendingCount = discrepancies.filter((d) => !d.resolved).length;
+  const missingCount = discrepancies.filter((d) => !d.resolved && d.discrepancy_type === 'MISSING').length;
+  const wrongUserCount = discrepancies.filter((d) => !d.resolved && d.discrepancy_type === 'WRONG_USER').length;
+  const wrongLocationCount = discrepancies.filter((d) => !d.resolved && d.discrepancy_type === 'WRONG_LOCATION').length;
 
-  const getCategoryIcon = (cat: string) => {
-    switch (cat) {
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
       case 'LAPTOP':
         return <Laptop className="w-4 h-4 text-sky-600" />;
-      case 'MONITOR':
-        return <Monitor className="w-4 h-4 text-indigo-600" />;
       case 'DOCKING':
         return <Cpu className="w-4 h-4 text-teal-600" />;
+      case 'MONITOR':
+        return <Monitor className="w-4 h-4 text-indigo-600" />;
       case 'PERIPHERAL':
         return <Headphones className="w-4 h-4 text-amber-600" />;
       default:
@@ -329,504 +117,280 @@ export const DiscrepanciesView: React.FC<{ onOpenScanner?: () => void }> = () =>
     }
   };
 
+  const getDiscrepancyBadge = (type: string) => {
+    switch (type) {
+      case 'MISSING':
+        return {
+          label: 'FALTANTE / NO LOCALIZADO',
+          className: 'bg-red-100 text-red-800 border-red-200',
+          icon: <XCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />,
+        };
+      case 'WRONG_USER':
+        return {
+          label: 'CUSTODIA INCORRECTA',
+          className: 'bg-amber-100 text-amber-800 border-amber-200',
+          icon: <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />,
+        };
+      case 'WRONG_LOCATION':
+        return {
+          label: 'UBICACIÓN INCORRECTA',
+          className: 'bg-purple-100 text-purple-800 border-purple-200',
+          icon: <HelpCircle className="w-3.5 h-3.5 text-purple-600 shrink-0" />,
+        };
+      case 'UNASSIGNED':
+      case 'UNASSIGNED_LOCATION':
+        return {
+          label: 'ACTIVO SIN ASIGNAR EN USO',
+          className: 'bg-blue-100 text-blue-800 border-blue-200',
+          icon: <AlertTriangle className="w-3.5 h-3.5 text-blue-600 shrink-0" />,
+        };
+      default:
+        return {
+          label: type,
+          className: 'bg-slate-100 text-slate-800 border-slate-200',
+          icon: <AlertTriangle className="w-3.5 h-3.5 text-slate-600 shrink-0" />,
+        };
+    }
+  };
+
   return (
     <div className="p-8 space-y-6 max-w-7xl mx-auto">
-      {/* Selector de Sub-pestañas: Auditoría Activa vs Historial Guardado */}
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+      {/* Cabecera Principal */}
+      <div className="bg-white p-6 rounded-2xl border border-[#E2E8F0] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-base font-bold text-slate-900">Control de Auditorías Físicas</h2>
+          <h2 className="text-base font-bold text-slate-900">
+            Centro de Resolución de Discrepancias
+          </h2>
           <p className="text-xs text-slate-500">
-            Barrido físico de hardware, detección de discrepancias y actas guardadas en base de datos
+            Conciliación en 1 clic de diferencias entre el inventario físico y lógico detectadas en auditorías
           </p>
         </div>
 
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl">
-          <button
-            onClick={() => setSubTab('ACTIVE')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition ${
-              subTab === 'ACTIVE'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Zap className="w-4 h-4 text-sky-600" />
-            <span>Auditar en Vivo</span>
-          </button>
-          <button
-            onClick={() => {
-              setSubTab('HISTORY');
-              loadHistory();
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition ${
-              subTab === 'HISTORY'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <History className="w-4 h-4 text-emerald-600" />
-            <span>Historial Guardado ({campaignsHistory.length})</span>
-          </button>
+        <button
+          onClick={loadDiscrepancies}
+          className="p-2.5 text-slate-500 hover:bg-slate-100 rounded-xl border border-slate-200 self-end sm:self-auto"
+          title="Recargar discrepancias"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+
+      {/* Métricas Superiores */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/20">
+          <span className="text-[11px] font-semibold text-amber-700 uppercase">Pendientes Activas</span>
+          <p className="text-2xl font-bold text-amber-700 mt-0.5">{pendingCount}</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-red-200 bg-red-50/20">
+          <span className="text-[11px] font-semibold text-red-700 uppercase">Equipos Faltantes (Missing)</span>
+          <p className="text-2xl font-bold text-red-700 mt-0.5">{missingCount}</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-orange-200 bg-orange-50/20">
+          <span className="text-[11px] font-semibold text-orange-700 uppercase">Custodia Errónea</span>
+          <p className="text-2xl font-bold text-orange-700 mt-0.5">{wrongUserCount}</p>
+        </div>
+        <div className="bg-white p-4 rounded-xl border border-purple-200 bg-purple-50/20">
+          <span className="text-[11px] font-semibold text-purple-700 uppercase">Sede Errónea</span>
+          <p className="text-2xl font-bold text-purple-700 mt-0.5">{wrongLocationCount}</p>
         </div>
       </div>
 
-      {subTab === 'ACTIVE' ? (
-        <div className="space-y-6">
-          {/* 1. Selector Principal: Auditar por Colaborador o por Sede/Site */}
-          <div className="bg-white p-6 rounded-2xl border border-[#E2E8F0] shadow-sm space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Seleccionar Objetivo a Auditar</h3>
-                <p className="text-xs text-slate-500">
-                  Indica si auditarás los equipos asignados a un <strong>Colaborador</strong> o los presentes en una <strong>Sede / Locación</strong>.
-                </p>
-              </div>
-
-              {/* Toggle Modo */}
-              <div className="flex items-center bg-slate-100 p-1 rounded-xl">
-                <button
-                  onClick={() => {
-                    setMode('USER');
-                    setCameraActive(false);
-                  }}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    mode === 'USER'
-                      ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <UserIcon className="w-4 h-4 text-sky-600" />
-                  <span>Por Colaborador</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setMode('LOCATION');
-                    setCameraActive(false);
-                  }}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    mode === 'LOCATION'
-                      ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <MapPin className="w-4 h-4 text-emerald-600" />
-                  <span>Por Sede / Site</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Selector del Objetivo Específico */}
-            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              {mode === 'USER' ? (
-                <div className="flex-1 flex items-center gap-3">
-                  <label className="text-xs font-bold text-slate-700 shrink-0">Colaborador:</label>
-                  <select
-                    value={selectedUserId}
-                    onChange={(e) => setSelectedUserId(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                  >
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.full_name} ({u.employee_code}) — {u.department} ({u.location})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="flex-1 flex items-center gap-3">
-                  <label className="text-xs font-bold text-slate-700 shrink-0">Sede / Site:</label>
-                  <div className="flex-1 flex gap-2">
-                    <select
-                      value={selectedLocation}
-                      onChange={(e) => setSelectedLocation(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                    >
-                      {locations.map((loc) => (
-                        <option key={loc} value={loc}>
-                          {loc}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      placeholder="O ingresa nuevo Site..."
-                      onBlur={(e) => {
-                        if (e.target.value.trim()) {
-                          setSelectedLocation(e.target.value.trim());
-                        }
-                      }}
-                      className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={loadExpected}
-                className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl border border-slate-200"
-                title="Recargar inventario"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-            </div>
+      {successMessage && (
+        <div className="p-4 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center justify-between animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{successMessage}</span>
           </div>
+          <button onClick={() => setSuccessMessage(null)} className="text-slate-400 hover:text-slate-600">
+            ×
+          </button>
+        </div>
+      )}
 
-          {/* 2. Barra de Métricas y Notificaciones */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-slate-200">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase">Esperados</span>
-              <p className="text-2xl font-bold text-slate-900 mt-0.5">{expectedAssets.length}</p>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-emerald-200 bg-emerald-50/20">
-              <span className="text-[11px] font-semibold text-emerald-700 uppercase">Verificados (Match)</span>
-              <p className="text-2xl font-bold text-emerald-700 mt-0.5">{verifiedAssetIds.length}</p>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/20">
-              <span className="text-[11px] font-semibold text-amber-700 uppercase">Pendientes</span>
-              <p className="text-2xl font-bold text-amber-700 mt-0.5">{missingExpectedAssets.length}</p>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-red-200 bg-red-50/20">
-              <span className="text-[11px] font-semibold text-red-700 uppercase">Discrepancias / Hallados</span>
-              <p className="text-2xl font-bold text-red-700 mt-0.5">{unexpectedScannedRecords.length}</p>
-            </div>
-          </div>
+      {/* Barra de Búsqueda y Filtros */}
+      <div className="bg-white p-4 rounded-2xl border border-[#E2E8F0] shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="relative flex-1 w-full">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por Asset Tag, número de serie, colaborador o ubicación..."
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+          />
+        </div>
 
-          {lastNotification && (
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+          >
+            <option value="ALL">Todos los Tipos</option>
+            <option value="MISSING">Faltantes (Missing)</option>
+            <option value="WRONG_USER">Custodia Errónea</option>
+            <option value="WRONG_LOCATION">Ubicación Errónea</option>
+            <option value="UNASSIGNED">En Stock Sin Asignar</option>
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+          >
+            <option value="PENDING">Solo Pendientes</option>
+            <option value="ALL">Todas (Incluye Resueltas)</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Lista de Discrepancias con Acciones de Resolución en 1 Clic */}
+      <div className="space-y-4">
+        {filteredDiscrepancies.map((d) => {
+          const badge = getDiscrepancyBadge(d.discrepancy_type);
+          const isResolving = resolvingId === d.id;
+
+          return (
             <div
-              className={`p-4 rounded-xl text-xs font-medium flex items-center justify-between border ${
-                lastNotification.type === 'success'
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                  : lastNotification.type === 'warn'
-                  ? 'bg-amber-50 text-amber-800 border-amber-200'
-                  : 'bg-red-50 text-red-800 border-red-200'
+              key={d.id}
+              className={`bg-white rounded-2xl border p-5 shadow-sm transition space-y-4 ${
+                d.resolved ? 'border-slate-200 bg-slate-50/40 opacity-75' : 'border-amber-200 hover:border-amber-300'
               }`}
             >
-              <div className="flex items-center gap-2">
-                {lastNotification.type === 'success' ? (
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                )}
-                <span>{lastNotification.message}</span>
-              </div>
-              <button onClick={() => setLastNotification(null)} className="text-slate-400 hover:text-slate-600">
-                ×
-              </button>
-            </div>
-          )}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                {/* Info Activo */}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                    {getCategoryIcon(d.asset_category)}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-sm text-slate-900">
+                        {d.asset_tag}
+                      </span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                        {d.asset_category}
+                      </span>
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${badge.className}`}>
+                        {badge.icon}
+                        <span>{badge.label}</span>
+                      </span>
+                      {d.resolved && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          <Check className="w-3 h-3" /> RESUELTA
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs font-semibold text-slate-800 mt-0.5">
+                      {d.asset_brand} {d.asset_model}
+                    </p>
+                  </div>
+                </div>
 
-          {/* 3. Panel de Escaneo Activo y Botón de Finalizar Auditoría */}
-          <div className="bg-white p-6 rounded-2xl border border-[#E2E8F0] shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-sky-600" />
-                <h3 className="text-sm font-bold text-slate-900">
-                  Escanear Activo en {getTargetName()}
-                </h3>
-                {activeCampaignId && (
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
-                    Folio: {activeCampaignId}
+                {/* Fecha / Folio Campaña */}
+                <div className="text-right text-[11px] text-slate-500">
+                  <span className="font-mono block">Auditoría: {d.campaign_id}</span>
+                  <span>{new Date(d.scanned_at).toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Comparativa Lógica vs Física */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/60">
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-slate-400 block mb-0.5">
+                    Inventario Lógico (Lo que el sistema esperaba)
                   </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  onClick={() => setCameraActive(!cameraActive)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
-                    cameraActive
-                      ? 'bg-slate-900 text-white border-slate-900'
-                      : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
-                  }`}
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  <span>{cameraActive ? 'Ocultar Cámara' : 'Usar Cámara'}</span>
-                </button>
-
-                {/* BOTÓN PRINCIPAL DE GUARDAR AUDITORÍA */}
-                <button
-                  onClick={handleFinishAudit}
-                  disabled={finishing || (!activeCampaignId && scannedRecords.length === 0)}
-                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition"
-                  title="Cierra y guarda la auditoría en base de datos"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>{finishing ? 'Guardando...' : 'Guardar y Finalizar Auditoría'}</span>
-                </button>
-              </div>
-            </div>
-
-            {cameraActive && (
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col items-center">
-                <div id="target-camera-container" className="w-full max-w-sm rounded-lg overflow-hidden bg-black" />
-                <p className="text-[11px] text-slate-500 mt-2">Apunta la cámara al código QR de la etiqueta.</p>
-              </div>
-            )}
-
-            <form onSubmit={handleManualScan} className="flex gap-2">
-              <div className="relative flex-1">
-                <QrCode className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  value={inputTag}
-                  onChange={(e) => setInputTag(e.target.value)}
-                  placeholder="Escribe o dispara con lector láser el Asset Tag (ej. IT-LAP-0010) o Número de Serie..."
-                  autoFocus
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={!inputTag.trim() || scanning}
-                className="bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-sm transition"
-              >
-                {scanning ? 'Verificando...' : 'Escanear'}
-              </button>
-            </form>
-          </div>
-
-          {/* 4. Tablas: Inventario Esperado + Discrepancias Halladas */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Inventario Esperado */}
-            <div className="lg:col-span-7 bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden flex flex-col">
-              <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                    Inventario Esperado ({expectedAssets.length})
-                  </h4>
-                  <p className="text-[11px] text-slate-500">
-                    Equipos que según el sistema deben encontrarse aquí
+                  <p className="font-semibold text-slate-800">
+                    {d.expected_user_name ? `Custodio: ${d.expected_user_name}` : 'Sin Asignar (Stock)'}
                   </p>
+                  <p className="text-[11px] text-slate-500">Ubicación: {d.expected_location || 'No especificada'}</p>
                 </div>
-              </div>
 
-              <div className="overflow-x-auto flex-1">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="bg-slate-50/50 border-b border-slate-200 text-slate-400 font-medium text-[10px] uppercase">
-                      <th className="py-2.5 px-4">Activo</th>
-                      <th className="py-2.5 px-3">Serie</th>
-                      <th className="py-2.5 px-3">Estatus Auditoría</th>
-                      <th className="py-2.5 px-4 text-right">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {expectedAssets.map((ast) => {
-                      const isVerified = verifiedAssetIds.includes(ast.id);
-                      return (
-                        <tr key={ast.id} className={isVerified ? 'bg-emerald-50/30' : 'hover:bg-slate-50'}>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2.5">
-                              {getCategoryIcon(ast.category)}
-                              <div>
-                                <span className="font-mono font-bold text-slate-900 block">{ast.asset_tag}</span>
-                                <span className="text-[11px] text-slate-500">{ast.brand} {ast.model}</span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-3 font-mono text-slate-600">{ast.serial_number}</td>
-                          <td className="py-3 px-3">
-                            {isVerified ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                <Check className="w-3 h-3" /> PRESENTE
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                                Pendiente
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            {!isVerified && (
-                              <button
-                                onClick={() => handleReconcile(ast.id, 'MARK_LOST')}
-                                className="text-[10px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded"
-                                title="Marcar como no localizado / extraviado"
-                              >
-                                Marcar LOST
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-
-                    {expectedAssets.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="py-8 text-center text-slate-400 text-xs">
-                          No hay equipos registrados lógicamente para este objetivo.
-                        </td>
-                      </tr>
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-slate-400 block mb-0.5">
+                    Realidad Física Encontrada
+                  </span>
+                  <p className="font-semibold text-slate-900">
+                    {d.discrepancy_type === 'MISSING' ? (
+                      <span className="text-red-700 font-bold">NO FUE PRESENTADO / NO LOCALIZADO</span>
+                    ) : d.found_with_user_name ? (
+                      `En posesión de: ${d.found_with_user_name}`
+                    ) : (
+                      `En sede: ${d.found_location}`
                     )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Equipos Inesperados / Discrepancias Halladas */}
-            <div className="lg:col-span-5 bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden flex flex-col">
-              <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                    Discrepancias Halladas ({unexpectedScannedRecords.length})
-                  </h4>
-                  <p className="text-[11px] text-slate-500">
-                    Equipos escaneados que no pertenecían a este objetivo
                   </p>
+                  {d.notes && <p className="text-[11px] text-slate-600 italic mt-0.5">{d.notes}</p>}
                 </div>
               </div>
 
-              <div className="p-4 space-y-3 flex-1 overflow-y-auto">
-                {unexpectedScannedRecords.map((rec) => (
-                  <div
-                    key={rec.asset.id}
-                    className="p-3.5 bg-amber-50/50 rounded-xl border border-amber-200 space-y-2 text-xs"
+              {/* Botones de Solución en 1 Clic */}
+              {!d.resolved ? (
+                <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-end gap-2">
+                  <span className="text-xs text-slate-500 font-semibold mr-auto">
+                    Solucionar en 1 clic:
+                  </span>
+
+                  {d.discrepancy_type !== 'MISSING' && (
+                    <button
+                      onClick={() => handleResolve(d.id, 'ACCEPT_PHYSICAL', d.asset_tag)}
+                      disabled={isResolving}
+                      className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl shadow-xs transition disabled:opacity-50"
+                      title="Sincroniza el inventario lógico transfiriendo la custodia a donde fue encontrado físicamente"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>Aceptar Físico (Reasignar)</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => handleResolve(d.id, 'MARK_LOST', d.asset_tag)}
+                    disabled={isResolving}
+                    className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl shadow-xs transition disabled:opacity-50"
+                    title="Marca el activo como extraviado (LOST) y remueve la custodia"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span className="font-mono font-bold text-slate-900">{rec.asset.asset_tag}</span>
-                      </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
-                        {rec.discrepancyType}
-                      </span>
-                    </div>
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>Marcar como LOST</span>
+                  </button>
 
-                    <p className="text-[11px] text-slate-700">{rec.asset.brand} {rec.asset.model} (S/N: {rec.asset.serial_number})</p>
-                    <p className="text-[11px] text-amber-900 font-medium">{rec.message}</p>
+                  <button
+                    onClick={() => handleResolve(d.id, 'MAINTENANCE', d.asset_tag)}
+                    disabled={isResolving}
+                    className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl shadow-xs transition disabled:opacity-50"
+                    title="Envía el equipo a taller o mantenimiento"
+                  >
+                    <Wrench className="w-3.5 h-3.5" />
+                    <span>Mantenimiento</span>
+                  </button>
 
-                    <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {rec.scannedAt.toLocaleTimeString()}
-                      </span>
-                      <button
-                        onClick={() => handleReconcile(rec.asset.id, 'ASSIGN_TO_TARGET')}
-                        className="bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm"
-                      >
-                        <span>Asignar a {mode === 'USER' ? 'Colaborador' : 'Site'}</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                {unexpectedScannedRecords.length === 0 && (
-                  <div className="py-8 text-center text-slate-400 text-xs italic">
-                    No se han detectado equipos ajenos o sin asignar en esta sesión.
-                  </div>
-                )}
-              </div>
+                  <button
+                    onClick={() => handleResolve(d.id, 'KEEP_LOGICAL', d.asset_tag)}
+                    disabled={isResolving}
+                    className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-3 py-1.5 rounded-xl border border-slate-300 transition disabled:opacity-50"
+                    title="Cierra la discrepancia manteniendo la asignación lógica original"
+                  >
+                    <span>Mantener Lógico</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                  <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    Discrepancia conciliada y resuelta en base de datos
+                  </span>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-      ) : (
-        /* HISTORIAL DE AUDITORÍAS GUARDADAS */
-        <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-            <div>
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                Historial Inmutable de Auditorías Físicas ({campaignsHistory.length})
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                Registro persistente de todas las campañas y barridos realizados
-              </p>
-            </div>
-            <button
-              onClick={loadHistory}
-              className="p-1.5 text-slate-500 hover:bg-slate-200 rounded-lg"
-              title="Recargar historial"
-            >
-              <RefreshCw className={`w-4 h-4 ${loadingHistory ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+          );
+        })}
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-slate-50/50 border-b border-slate-200 text-slate-400 font-medium text-[10px] uppercase">
-                  <th className="py-3 px-6">Folio / Campaña</th>
-                  <th className="py-3 px-4">Objetivo Auditado</th>
-                  <th className="py-3 px-4">Fecha</th>
-                  <th className="py-3 px-3 text-center">Esperados</th>
-                  <th className="py-3 px-3 text-center">Verificados</th>
-                  <th className="py-3 px-3 text-center">Discrepancias</th>
-                  <th className="py-3 px-3 text-center">Faltantes</th>
-                  <th className="py-3 px-4">Estatus</th>
-                  <th className="py-3 px-6 text-right">Acta</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {campaignsHistory.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50">
-                    <td className="py-3 px-6 font-mono font-bold text-slate-900">
-                      {c.id}
-                      <span className="block font-sans font-normal text-[11px] text-slate-500">
-                        {c.name}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-slate-800">
-                      {c.target_name || c.target_location}
-                      <span className="block font-normal text-[10px] text-slate-500 uppercase">
-                        {c.target_type === 'USER' ? 'Colaborador' : 'Sede'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-slate-600 font-mono text-[11px]">
-                      {new Date(c.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="py-3 px-3 text-center font-bold text-slate-800">
-                      {c.total_expected || 0}
-                    </td>
-                    <td className="py-3 px-3 text-center font-bold text-emerald-700">
-                      {c.total_matches || c.total_scanned - c.discrepancies_count}
-                    </td>
-                    <td className="py-3 px-3 text-center font-bold text-amber-700">
-                      {c.discrepancies_count}
-                    </td>
-                    <td className="py-3 px-3 text-center font-bold text-red-700">
-                      {c.total_missing || 0}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          c.status === 'CLOSED'
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                            : 'bg-amber-100 text-amber-800 border border-amber-200'
-                        }`}
-                      >
-                        {c.status === 'CLOSED' ? 'CERRADA' : 'EN PROCESO'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-6 text-right">
-                      <button
-                        onClick={() => handleViewHistoricalReport(c.id)}
-                        className="flex items-center gap-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold text-[11px] px-3 py-1.5 rounded-lg shadow-sm ml-auto"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-sky-600" />
-                        <span>Ver Acta</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-
-                {campaignsHistory.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400 text-xs italic">
-                      Aún no hay auditorías registradas en la base de datos.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+        {filteredDiscrepancies.length === 0 && (
+          <div className="bg-white rounded-2xl border border-[#E2E8F0] p-12 text-center text-xs text-slate-400 shadow-sm space-y-2">
+            <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
+            <p className="font-semibold text-slate-700">No hay discrepancias pendientes en el sistema.</p>
+            <p>Todo el inventario físico verificado coincide con el inventario lógico.</p>
           </div>
-        </div>
-      )}
-
-      {/* Modal del Acta de Auditoría Guardada */}
-      {selectedReportCampaign && (
-        <AuditReportModal
-          campaign={selectedReportCampaign}
-          onClose={() => setSelectedReportCampaign(null)}
-        />
-      )}
+        )}
+      </div>
     </div>
   );
 };
