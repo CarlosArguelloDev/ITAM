@@ -124,7 +124,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">Auditoría con Escáner QR</h3>
-              <p className="text-[11px] text-slate-500">Conciliación de inventario físico vs. lógico</p>
+              <p className="text-[11px] text-slate-500">Lectura y verificación de código de activo</p>
             </div>
           </div>
           <button

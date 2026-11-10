@@ -336,12 +336,9 @@ export const UsersDiagramView: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Laptop className="w-4 h-4 text-sky-600" />
                   <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                    Asset Diagram & Assignments (Árbol de Custodia)
+                    Diagrama de Custodia y Asignación de Equipos
                   </h4>
                 </div>
-                <span className="text-[11px] text-slate-400 italic">
-                  Arrastra los nodos para reorganizar la visualización
-                </span>
               </div>
 
               <div className="flex-1 w-full h-full min-h-[420px] bg-slate-50/30">
@@ -428,7 +425,6 @@ export const UsersDiagramView: React.FC = () => {
                     <History className="w-4 h-4 text-slate-500" />
                     <span>Historial de Equipos</span>
                   </h4>
-                  <span className="text-[10px] text-slate-400 font-mono">Inmutable</span>
                 </div>
 
                 <div className="space-y-2.5 overflow-y-auto max-h-64 text-xs divide-y divide-slate-100">
