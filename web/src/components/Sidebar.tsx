@@ -3,12 +3,13 @@ import {
   LayoutDashboard,
   Laptop,
   Users,
+  ClipboardCheck,
   AlertTriangle,
   Bell,
   FileText,
 } from 'lucide-react';
 
-export type NavView = 'dashboard' | 'assets' | 'users' | 'discrepancies' | 'alerts' | 'documents';
+export type NavView = 'dashboard' | 'assets' | 'users' | 'audits' | 'discrepancies' | 'alerts' | 'documents';
 
 interface SidebarProps {
   currentView: NavView;
@@ -29,9 +30,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard' as NavView, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'assets' as NavView, label: 'Assets', icon: Laptop },
     { id: 'users' as NavView, label: 'Users & Diagrams', icon: Users },
+    { id: 'audits' as NavView, label: 'Auditorías', icon: ClipboardCheck },
     {
       id: 'discrepancies' as NavView,
-      label: 'Discrepancies',
+      label: 'Discrepancias',
       icon: AlertTriangle,
       badge: discrepanciesCount > 0 ? discrepanciesCount : undefined,
       badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',

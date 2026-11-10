@@ -119,8 +119,12 @@ export const api = {
   scanAsset: (campaignId: string, data: { asset_tag: string; found_with_user_id?: string; found_location?: string }) =>
     fetchJSON<AuditScan>(`/audits/campaigns/${campaignId}/scan`, { method: 'POST', body: JSON.stringify(data) }),
   getDiscrepancies: (campaignId: string) => fetchJSON<AuditScan[]>(`/audits/campaigns/${campaignId}/discrepancies`),
-  resolveDiscrepancy: (scanId: string, data: { action: 'ACCEPT_PHYSICAL' | 'MARK_LOST' | 'KEEP_LOGICAL'; notes?: string }) =>
-    fetchJSON<{ status: string; message: string }>(`/audits/discrepancies/${scanId}/resolve`, {
+  getAllDiscrepancies: (resolved?: boolean) => {
+    const qs = resolved !== undefined ? `?resolved=${resolved}` : '';
+    return fetchJSON<AuditScan[]>(`/discrepancies${qs}`);
+  },
+  resolveDiscrepancy: (scanId: string, data: { action: 'ACCEPT_PHYSICAL' | 'MARK_LOST' | 'MAINTENANCE' | 'KEEP_LOGICAL'; notes?: string }) =>
+    fetchJSON<{ status: string; message: string }>(`/discrepancies/${scanId}/resolve`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),

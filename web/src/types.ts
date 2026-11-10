@@ -120,6 +120,7 @@ export interface AuditCampaign {
 export interface AuditScan {
   id: string;
   campaign_id: string;
+  campaign_name?: string;
   asset_id: string;
   asset_tag: string;
   asset_brand: string;

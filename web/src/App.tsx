@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { DashboardView } from './views/DashboardView';
 import { AssetsView } from './views/AssetsView';
 import { UsersDiagramView } from './views/UsersDiagramView';
+import { AuditsView } from './views/AuditsView';
 import { DiscrepanciesView } from './views/DiscrepanciesView';
 import { AlertsView } from './views/AlertsView';
 import { DocumentsView } from './views/DocumentsView';
@@ -64,10 +65,15 @@ export const App: React.FC = () => {
           title: 'Users & Diagrams (Custodia de Hardware)',
           subtitle: 'Árbol interactivo de asignación de equipos por colaborador',
         };
+      case 'audits':
+        return {
+          title: 'Campañas e Historial de Auditorías',
+          subtitle: 'Registro formal de auditorías físicas por colaborador y por sede',
+        };
       case 'discrepancies':
         return {
-          title: 'Conciliación de Inventario Físico vs. Lógico',
-          subtitle: 'Campañas de barrido físico y resolución de discrepancias en 1 clic',
+          title: 'Centro de Resolución de Discrepancias',
+          subtitle: 'Conciliación en 1 clic de diferencias entre el inventario físico y lógico',
         };
       case 'alerts':
         return {
@@ -115,8 +121,9 @@ export const App: React.FC = () => {
           )}
           {currentView === 'assets' && <AssetsView />}
           {currentView === 'users' && <UsersDiagramView />}
+          {currentView === 'audits' && <AuditsView />}
           {currentView === 'discrepancies' && (
-            <DiscrepanciesView onOpenScanner={() => setScannerOpen(true)} />
+            <DiscrepanciesView onDiscrepancyResolved={loadGlobalBadges} />
           )}
           {currentView === 'alerts' && <AlertsView />}
           {currentView === 'documents' && <DocumentsView />}
