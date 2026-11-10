@@ -19,7 +19,12 @@ func (h *AppHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	activeOnly := r.URL.Query().Get("active") == "true"
 
 	query := `
-		SELECT u.id, u.employee_code, u.full_name, u.email, u.department, u.location, u.is_active, u.created_at
+		SELECT u.id, u.employee_code, u.full_name, u.email, u.department, u.location, u.is_active, u.created_at,
+		       (SELECT COUNT(*) FROM assets WHERE assigned_to_user_id = u.id AND status != 'RETIRED') AS assets_count,
+		       (SELECT COUNT(*) FROM assets WHERE assigned_to_user_id = u.id AND category = 'LAPTOP' AND status != 'RETIRED') AS laptops_count,
+		       (SELECT COUNT(*) FROM assets WHERE assigned_to_user_id = u.id AND category = 'MONITOR' AND status != 'RETIRED') AS monitors_count,
+		       (SELECT COUNT(*) FROM assets WHERE assigned_to_user_id = u.id AND category = 'DOCKING' AND status != 'RETIRED') AS dockings_count,
+		       (SELECT COUNT(*) FROM assets WHERE assigned_to_user_id = u.id AND category = 'PERIPHERAL' AND status != 'RETIRED') AS peripherals_count
 		FROM users u
 		WHERE 1=1
 	`
@@ -50,15 +55,49 @@ func (h *AppHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	users := []models.User{}
+	userIndexMap := make(map[string]int)
+
 	for rows.Next() {
 		var u models.User
 		var isActiveInt int
-		if err := rows.Scan(&u.ID, &u.EmployeeCode, &u.FullName, &u.Email, &u.Department, &u.Location, &isActiveInt, &u.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&u.ID, &u.EmployeeCode, &u.FullName, &u.Email, &u.Department, &u.Location, &isActiveInt, &u.CreatedAt,
+			&u.AssetsCount, &u.LaptopsCount, &u.MonitorsCount, &u.DockingsCount, &u.PeripheralsCount,
+		); err != nil {
 			ErrorResponse(w, http.StatusInternalServerError, "Error al escanear usuario: "+err.Error())
 			return
 		}
 		u.IsActive = isActiveInt == 1
+		u.AssignedAssets = []models.Asset{}
+		userIndexMap[u.ID] = len(users)
 		users = append(users, u)
+	}
+
+	// Cargar resumen de activos asignados para cada usuario
+	if len(users) > 0 {
+		assetRows, err := h.DB.Query(`
+			SELECT id, asset_tag, serial_number, category, brand, model, status, assigned_to_user_id, location
+			FROM assets
+			WHERE assigned_to_user_id IS NOT NULL AND status != 'RETIRED'
+			ORDER BY CASE category 
+				WHEN 'LAPTOP' THEN 1 
+				WHEN 'DOCKING' THEN 2 
+				WHEN 'MONITOR' THEN 3 
+				ELSE 4 END, model ASC
+		`)
+		if err == nil {
+			defer assetRows.Close()
+			for assetRows.Next() {
+				var ast models.Asset
+				var assignedUID string
+				if err := assetRows.Scan(&ast.ID, &ast.AssetTag, &ast.SerialNumber, &ast.Category, &ast.Brand, &ast.Model, &ast.Status, &assignedUID, &ast.Location); err == nil {
+					ast.AssignedToUserID = &assignedUID
+					if idx, ok := userIndexMap[assignedUID]; ok {
+						users[idx].AssignedAssets = append(users[idx].AssignedAssets, ast)
+					}
+				}
+			}
+		}
 	}
 
 	JSONResponse(w, http.StatusOK, users)
