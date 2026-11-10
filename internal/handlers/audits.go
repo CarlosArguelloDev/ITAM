@@ -508,3 +508,265 @@ func (h *AppHandler) ResolveDiscrepancy(w http.ResponseWriter, r *http.Request) 
 		"action":  req.Action,
 	})
 }
+
+// GetTargetExpectedAssets obtiene los activos que lógicamente deben estar con una persona o en una locación
+func (h *AppHandler) GetTargetExpectedAssets(w http.ResponseWriter, r *http.Request) {
+	targetType := r.URL.Query().Get("type") // "USER" o "LOCATION"
+	targetID := r.URL.Query().Get("target")
+
+	if targetType == "" || targetID == "" {
+		ErrorResponse(w, http.StatusBadRequest, "type (USER o LOCATION) y target son obligatorios")
+		return
+	}
+
+	var query string
+	var args []interface{}
+
+	if targetType == "USER" {
+		query = `
+			SELECT a.id, a.asset_tag, a.serial_number, a.category, a.brand, a.model, a.status,
+			       a.assigned_to_user_id, u.full_name AS assigned_to_name,
+			       a.parent_asset_id, p.asset_tag AS parent_asset_tag,
+			       a.location, a.specs, a.warranty_expiry, a.last_audited_at, a.created_at
+			FROM assets a
+			LEFT JOIN users u ON a.assigned_to_user_id = u.id
+			LEFT JOIN assets p ON a.parent_asset_id = p.id
+			WHERE a.assigned_to_user_id = ? AND a.status != 'RETIRED'
+			ORDER BY a.category ASC, a.model ASC
+		`
+		args = append(args, targetID)
+	} else {
+		query = `
+			SELECT a.id, a.asset_tag, a.serial_number, a.category, a.brand, a.model, a.status,
+			       a.assigned_to_user_id, u.full_name AS assigned_to_name,
+			       a.parent_asset_id, p.asset_tag AS parent_asset_tag,
+			       a.location, a.specs, a.warranty_expiry, a.last_audited_at, a.created_at
+			FROM assets a
+			LEFT JOIN users u ON a.assigned_to_user_id = u.id
+			LEFT JOIN assets p ON a.parent_asset_id = p.id
+			WHERE (a.location = ? OR a.location LIKE ?) AND a.status != 'RETIRED'
+			ORDER BY a.category ASC, a.model ASC
+		`
+		args = append(args, targetID, "%"+targetID+"%")
+	}
+
+	rows, err := h.DB.Query(query, args...)
+	if err != nil {
+		ErrorResponse(w, http.StatusInternalServerError, "Error al consultar activos esperados: "+err.Error())
+		return
+	}
+	defer rows.Close()
+
+	assets := []models.Asset{}
+	for rows.Next() {
+		var a models.Asset
+		var specsStr string
+		var lastAuditedStr *string
+		if err := rows.Scan(
+			&a.ID, &a.AssetTag, &a.SerialNumber, &a.Category, &a.Brand, &a.Model, &a.Status,
+			&a.AssignedToUserID, &a.AssignedToName,
+			&a.ParentAssetID, &a.ParentAssetTag,
+			&a.Location, &specsStr, &a.WarrantyExpiry, &lastAuditedStr, &a.CreatedAt,
+		); err == nil {
+			a.LastAuditedAt = ParseNullTime(lastAuditedStr)
+			a.Specs = json.RawMessage(specsStr)
+			assets = append(assets, a)
+		}
+	}
+
+	JSONResponse(w, http.StatusOK, assets)
+}
+
+// ScanTargetAsset evalúa un activo escaneado en vivo contra el objetivo seleccionado (persona o locación)
+func (h *AppHandler) ScanTargetAsset(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		TargetType string `json:"target_type"` // "USER" o "LOCATION"
+		TargetID   string `json:"target_id"`
+		TargetName string `json:"target_name"`
+		AssetTag   string `json:"asset_tag"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ErrorResponse(w, http.StatusBadRequest, "Payload inválido: "+err.Error())
+		return
+	}
+
+	if req.AssetTag == "" || req.TargetType == "" || req.TargetID == "" {
+		ErrorResponse(w, http.StatusBadRequest, "asset_tag, target_type y target_id son obligatorios")
+		return
+	}
+
+	query := `
+		SELECT a.id, a.asset_tag, a.serial_number, a.category, a.brand, a.model, a.status,
+		       a.assigned_to_user_id, u.full_name AS assigned_to_name,
+		       a.parent_asset_id, a.location, a.specs, a.warranty_expiry, a.last_audited_at, a.created_at
+		FROM assets a
+		LEFT JOIN users u ON a.assigned_to_user_id = u.id
+		WHERE a.asset_tag = ? OR a.serial_number = ? OR a.id = ?
+	`
+
+	var a models.Asset
+	var specsStr string
+	var lastAuditedStr *string
+	err := h.DB.QueryRow(query, req.AssetTag, req.AssetTag, req.AssetTag).Scan(
+		&a.ID, &a.AssetTag, &a.SerialNumber, &a.Category, &a.Brand, &a.Model, &a.Status,
+		&a.AssignedToUserID, &a.AssignedToName,
+		&a.ParentAssetID, &a.Location, &specsStr, &a.WarrantyExpiry, &lastAuditedStr, &a.CreatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		ErrorResponse(w, http.StatusNotFound, fmt.Sprintf("Activo '%s' no encontrado en el sistema", req.AssetTag))
+		return
+	} else if err != nil {
+		ErrorResponse(w, http.StatusInternalServerError, "Error: "+err.Error())
+		return
+	}
+	a.LastAuditedAt = ParseNullTime(lastAuditedStr)
+	a.Specs = json.RawMessage(specsStr)
+
+	// Actualizar fecha de auditoría física
+	now := time.Now()
+	_, _ = h.DB.Exec("UPDATE assets SET last_audited_at = ? WHERE id = ?", now, a.ID)
+	a.LastAuditedAt = &now
+
+	// Determinar tipo de coincidencia / discrepancia
+	discrepancyType := "MATCH"
+	message := "Activo verificado correctamente."
+
+	if req.TargetType == "USER" {
+		currentUserID := ""
+		if a.AssignedToUserID != nil {
+			currentUserID = *a.AssignedToUserID
+		}
+
+		if currentUserID == req.TargetID {
+			discrepancyType = "MATCH"
+			message = fmt.Sprintf("Coincide: el equipo pertenece a %s", req.TargetName)
+		} else if currentUserID == "" {
+			discrepancyType = "UNASSIGNED"
+			message = "Activo en stock (sin asignar) encontrado en posesión de este colaborador."
+		} else {
+			discrepancyType = "WRONG_USER"
+			ownerName := "otro colaborador"
+			if a.AssignedToName != nil {
+				ownerName = *a.AssignedToName
+			}
+			message = fmt.Sprintf("Discrepancia: El equipo está registrado a nombre de %s.", ownerName)
+		}
+	} else {
+		// LOCATION
+		locMatch := strings.EqualFold(strings.TrimSpace(a.Location), strings.TrimSpace(req.TargetID))
+		if locMatch {
+			discrepancyType = "MATCH"
+			message = fmt.Sprintf("Coincide: el equipo pertenece a la sede %s", req.TargetID)
+		} else if strings.TrimSpace(a.Location) == "" {
+			discrepancyType = "UNASSIGNED_LOCATION"
+			message = "Activo sin sede asignada encontrado en este sitio."
+		} else {
+			discrepancyType = "WRONG_LOCATION"
+			message = fmt.Sprintf("Discrepancia: El equipo está registrado en la sede %s.", a.Location)
+		}
+	}
+
+	JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"asset":            a,
+		"discrepancy_type": discrepancyType,
+		"message":          message,
+		"scanned_at":       now,
+	})
+}
+
+// ReconcileTargetAsset permite asignar el activo hallado al objetivo o marcarlo LOST
+func (h *AppHandler) ReconcileTargetAsset(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Action     string `json:"action"` // "ASSIGN_TO_TARGET" o "MARK_LOST"
+		AssetID    string `json:"asset_id"`
+		TargetType string `json:"target_type"` // "USER" o "LOCATION"
+		TargetID   string `json:"target_id"`
+		Notes      string `json:"notes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ErrorResponse(w, http.StatusBadRequest, "Payload inválido: "+err.Error())
+		return
+	}
+
+	if req.AssetID == "" {
+		ErrorResponse(w, http.StatusBadRequest, "asset_id es obligatorio")
+		return
+	}
+
+	tx, err := h.DB.Begin()
+	if err != nil {
+		ErrorResponse(w, http.StatusInternalServerError, "Error: "+err.Error())
+		return
+	}
+	defer tx.Rollback()
+
+	histNotes := req.Notes
+	if req.Action == "ASSIGN_TO_TARGET" {
+		if req.TargetType == "USER" {
+			var userLoc string
+			_ = tx.QueryRow("SELECT location FROM users WHERE id = ?", req.TargetID).Scan(&userLoc)
+			_, err = tx.Exec(`
+				UPDATE assets
+				SET assigned_to_user_id = ?, location = ?, status = 'ASSIGNED'
+				WHERE id = ?
+			`, req.TargetID, userLoc, req.AssetID)
+			if err != nil {
+				ErrorResponse(w, http.StatusInternalServerError, "Error al reasignar activo: "+err.Error())
+				return
+			}
+			if histNotes == "" {
+				histNotes = "Reasignación inmediata tras auditoría física"
+			}
+		} else {
+			// LOCATION
+			_, err = tx.Exec(`
+				UPDATE assets
+				SET location = ?
+				WHERE id = ?
+			`, req.TargetID, req.AssetID)
+			if err != nil {
+				ErrorResponse(w, http.StatusInternalServerError, "Error al actualizar ubicación: "+err.Error())
+				return
+			}
+			if histNotes == "" {
+				histNotes = "Actualización de ubicación tras auditoría en sede"
+			}
+		}
+
+		histID := "his-" + uuid.New().String()[:8]
+		_, _ = tx.Exec(`
+			INSERT INTO asset_history (id, asset_id, action_type, notes, responsiva_status)
+			VALUES (?, ?, 'AUDIT_MATCH', ?, 'NOT_REQUIRED')
+		`, histID, req.AssetID, histNotes)
+
+	} else if req.Action == "MARK_LOST" {
+		_, err = tx.Exec(`
+			UPDATE assets
+			SET status = 'LOST', assigned_to_user_id = NULL, parent_asset_id = NULL
+			WHERE id = ?
+		`, req.AssetID)
+		if err != nil {
+			ErrorResponse(w, http.StatusInternalServerError, "Error al marcar como extraviado: "+err.Error())
+			return
+		}
+		if histNotes == "" {
+			histNotes = "Activo reportado como FALTANTE / LOST durante auditoría"
+		}
+		histID := "his-" + uuid.New().String()[:8]
+		_, _ = tx.Exec(`
+			INSERT INTO asset_history (id, asset_id, action_type, notes, responsiva_status)
+			VALUES (?, ?, 'STATUS_CHANGE', ?, 'NOT_REQUIRED')
+		`, histID, req.AssetID, histNotes)
+	}
+
+	if err := tx.Commit(); err != nil {
+		ErrorResponse(w, http.StatusInternalServerError, "Error commit: "+err.Error())
+		return
+	}
+
+	JSONResponse(w, http.StatusOK, map[string]string{
+		"status":  "success",
+		"message": "Activo actualizado y conciliado con éxito",
+	})
+}
