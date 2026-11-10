@@ -52,15 +52,20 @@ const (
 
 // User representa al usuario primario/empleado
 type User struct {
-	ID             string     `json:"id"`
-	EmployeeCode   string     `json:"employee_code"`
-	FullName       string     `json:"full_name"`
-	Email          string     `json:"email"`
-	Department     string     `json:"department"`
-	Location       string     `json:"location"`
-	IsActive       bool       `json:"is_active"`
-	CreatedAt      time.Time  `json:"created_at"`
-	AssignedAssets []Asset    `json:"assigned_assets,omitempty"`
+	ID               string     `json:"id"`
+	EmployeeCode     string     `json:"employee_code"`
+	FullName         string     `json:"full_name"`
+	Email            string     `json:"email"`
+	Department       string     `json:"department"`
+	Location         string     `json:"location"`
+	IsActive         bool       `json:"is_active"`
+	CreatedAt        time.Time  `json:"created_at"`
+	AssignedAssets   []Asset    `json:"assigned_assets,omitempty"`
+	AssetsCount      int        `json:"assets_count"`
+	LaptopsCount     int        `json:"laptops_count"`
+	MonitorsCount    int        `json:"monitors_count"`
+	DockingsCount    int        `json:"dockings_count"`
+	PeripheralsCount int        `json:"peripherals_count"`
 }
 
 // Asset representa cualquier equipo de TI
