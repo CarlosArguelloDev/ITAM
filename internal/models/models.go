@@ -106,12 +106,20 @@ type AuditCampaign struct {
 	ID                 string     `json:"id"`
 	Name               string     `json:"name"`
 	TargetLocation     string     `json:"target_location"`
-	Status             string     `json:"status"`
+	TargetType         string     `json:"target_type"` // "USER" | "LOCATION"
+	TargetID           *string    `json:"target_id,omitempty"`
+	TargetName         string     `json:"target_name"`
+	Status             string     `json:"status"` // "OPEN" | "CLOSED"
+	TotalExpected      int        `json:"total_expected"`
+	TotalScans         int        `json:"total_scans"`
+	TotalMatches       int        `json:"total_matches"`
+	DiscrepanciesCount int        `json:"discrepancies_count"`
+	MissingCount       int        `json:"missing_count"`
+	ResolvedCount      int        `json:"resolved_count"`
+	Notes              *string    `json:"notes,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
 	ClosedAt           *time.Time `json:"closed_at,omitempty"`
-	TotalScans         int        `json:"total_scans"`
-	DiscrepanciesCount int        `json:"discrepancies_count"`
-	ResolvedCount      int        `json:"resolved_count"`
+	Scans              []AuditScan `json:"scans,omitempty"`
 }
 
 // AuditScan lectura física comparada contra el inventario lógico
@@ -131,6 +139,7 @@ type AuditScan struct {
 	FoundLocation     string    `json:"found_location"`
 	DiscrepancyType   string    `json:"discrepancy_type"`
 	Resolved          bool      `json:"resolved"`
+	Notes             *string   `json:"notes,omitempty"`
 	ScannedAt         time.Time `json:"scanned_at"`
 }
 

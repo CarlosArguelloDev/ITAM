@@ -131,6 +131,7 @@ func main() {
 			// Auditoría Dirigida por Persona o Sede/Site
 			aud.Get("/target-assets", appHandler.GetTargetExpectedAssets)
 			aud.Post("/target-scan", appHandler.ScanTargetAsset)
+			aud.Post("/target-finish", appHandler.FinishTargetAudit)
 			aud.Post("/target-reconcile", appHandler.ReconcileTargetAsset)
 		})
 	})

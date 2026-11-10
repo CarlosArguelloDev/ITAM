@@ -72,8 +72,28 @@ func InitDB(dbPath string) (*sql.DB, error) {
 }
 
 func runMigrations(db *sql.DB) error {
-	_, err := db.Exec(schemaSQL)
-	return err
+	if _, err := db.Exec(schemaSQL); err != nil {
+		return err
+	}
+
+	// Migraciones incrementales seguras para bases de datos existentes
+	alters := []string{
+		"ALTER TABLE audit_campaigns ADD COLUMN target_type TEXT NOT NULL DEFAULT 'LOCATION';",
+		"ALTER TABLE audit_campaigns ADD COLUMN target_id TEXT NULLABLE;",
+		"ALTER TABLE audit_campaigns ADD COLUMN target_name TEXT NOT NULL DEFAULT '';",
+		"ALTER TABLE audit_campaigns ADD COLUMN total_expected INTEGER NOT NULL DEFAULT 0;",
+		"ALTER TABLE audit_campaigns ADD COLUMN total_scanned INTEGER NOT NULL DEFAULT 0;",
+		"ALTER TABLE audit_campaigns ADD COLUMN total_matches INTEGER NOT NULL DEFAULT 0;",
+		"ALTER TABLE audit_campaigns ADD COLUMN total_discrepancies INTEGER NOT NULL DEFAULT 0;",
+		"ALTER TABLE audit_campaigns ADD COLUMN total_missing INTEGER NOT NULL DEFAULT 0;",
+		"ALTER TABLE audit_campaigns ADD COLUMN notes TEXT NULLABLE;",
+		"ALTER TABLE audit_scans ADD COLUMN notes TEXT NULLABLE;",
+	}
+	for _, alter := range alters {
+		_, _ = db.Exec(alter)
+	}
+
+	return nil
 }
 
 func runSeed(db *sql.DB) error {
