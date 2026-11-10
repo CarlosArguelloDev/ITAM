@@ -468,44 +468,78 @@ export const UsersDiagramView: React.FC = () => {
                         <span className="text-[11px] text-slate-500">{u.location}</span>
                       </td>
 
-                      {/* Chips de Equipos Asignados */}
+                      {/* Equipos Asignados por Tipo con Icono y Cantidad */}
                       <td className="py-3.5 px-6">
-                        <div className="flex flex-wrap items-center gap-1.5 max-w-md">
-                          {assignedList.map((ast) => {
-                            let chipColor = 'bg-slate-100 text-slate-700 border-slate-200';
-                            let Icon = Box;
-                            if (ast.category === 'LAPTOP') {
-                              chipColor = 'bg-sky-50 text-sky-800 border-sky-200';
-                              Icon = Laptop;
-                            } else if (ast.category === 'DOCKING') {
-                              chipColor = 'bg-teal-50 text-teal-800 border-teal-200';
-                              Icon = Cpu;
-                            } else if (ast.category === 'MONITOR') {
-                              chipColor = 'bg-indigo-50 text-indigo-800 border-indigo-200';
-                              Icon = Monitor;
-                            } else if (ast.category === 'PERIPHERAL') {
-                              chipColor = 'bg-amber-50 text-amber-800 border-amber-200';
-                              Icon = Headphones;
+                        <div className="flex flex-wrap items-center gap-2">
+                          {(() => {
+                            const laptops = u.laptops_count ?? (u.assigned_assets?.filter((a) => a.category === 'LAPTOP').length || 0);
+                            const dockings = u.dockings_count ?? (u.assigned_assets?.filter((a) => a.category === 'DOCKING').length || 0);
+                            const monitors = u.monitors_count ?? (u.assigned_assets?.filter((a) => a.category === 'MONITOR').length || 0);
+                            const peripherals = u.peripherals_count ?? (u.assigned_assets?.filter((a) => a.category === 'PERIPHERAL').length || 0);
+                            const others = u.assigned_assets?.filter((a) => a.category === 'OTHER').length || 0;
+
+                            if (totalAssets === 0) {
+                              return (
+                                <span className="text-slate-400 text-xs italic">
+                                  Sin equipos asignados
+                                </span>
+                              );
                             }
 
                             return (
-                              <span
-                                key={ast.id}
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium border ${chipColor}`}
-                                title={`${ast.brand} ${ast.model} (S/N: ${ast.serial_number})`}
-                              >
-                                <Icon className="w-3 h-3 shrink-0" />
-                                <span className="font-mono font-bold">{ast.asset_tag}</span>
-                                <span className="truncate max-w-[90px]">{ast.model}</span>
-                              </span>
-                            );
-                          })}
+                              <>
+                                {laptops > 0 && (
+                                  <span
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-sky-50 text-sky-800 border border-sky-200"
+                                    title={`${laptops} Laptop${laptops > 1 ? 's' : ''}`}
+                                  >
+                                    <Laptop className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                                    <span>{laptops}</span>
+                                  </span>
+                                )}
 
-                          {totalAssets === 0 && (
-                            <span className="text-slate-400 text-[11px] italic">
-                              Sin equipos asignados actualmente
-                            </span>
-                          )}
+                                {dockings > 0 && (
+                                  <span
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200"
+                                    title={`${dockings} Docking Station${dockings > 1 ? 's' : ''}`}
+                                  >
+                                    <Cpu className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                                    <span>{dockings}</span>
+                                  </span>
+                                )}
+
+                                {monitors > 0 && (
+                                  <span
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200"
+                                    title={`${monitors} Monitor${monitors > 1 ? 'es' : ''}`}
+                                  >
+                                    <Monitor className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                    <span>{monitors}</span>
+                                  </span>
+                                )}
+
+                                {peripherals > 0 && (
+                                  <span
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200"
+                                    title={`${peripherals} Accesorio${peripherals > 1 ? 's' : ''}`}
+                                  >
+                                    <Headphones className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                    <span>{peripherals}</span>
+                                  </span>
+                                )}
+
+                                {others > 0 && (
+                                  <span
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200"
+                                    title={`${others} Otro${others > 1 ? 's' : ''}`}
+                                  >
+                                    <Box className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                                    <span>{others}</span>
+                                  </span>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </td>
 
