@@ -118,6 +118,12 @@ func main() {
 			resp.Get("/pending", appHandler.ListPendingResponsivas)
 		})
 
+		// Centro de Discrepancias
+		api.Route("/discrepancies", func(disc chi.Router) {
+			disc.Get("/", appHandler.ListAllDiscrepancies)
+			disc.Post("/{id}/resolve", appHandler.ResolveDiscrepancy)
+		})
+
 		// Campañas de Auditoría y Conciliación Físico vs. Lógico
 		api.Route("/audits", func(aud chi.Router) {
 			aud.Get("/campaigns", appHandler.ListCampaigns)
@@ -126,6 +132,7 @@ func main() {
 			aud.Post("/campaigns/{id}/close", appHandler.CloseCampaign)
 			aud.Post("/campaigns/{id}/scan", appHandler.ScanAsset)
 			aud.Get("/campaigns/{id}/discrepancies", appHandler.ListDiscrepancies)
+			aud.Get("/discrepancies", appHandler.ListAllDiscrepancies)
 			aud.Post("/discrepancies/{id}/resolve", appHandler.ResolveDiscrepancy)
 
 			// Auditoría Dirigida por Persona o Sede/Site
