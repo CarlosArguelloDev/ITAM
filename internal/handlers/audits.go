@@ -13,12 +13,12 @@ import (
 	"opti-itam/internal/models"
 )
 
-// ListCampaigns lista las campañas de auditoría
+// ListCampaigns lista las campañas de auditoría con información completa y persistente
 func (h *AppHandler) ListCampaigns(w http.ResponseWriter, r *http.Request) {
 	query := `
-		SELECT c.id, c.name, c.target_location, c.status, c.created_at, c.closed_at,
-		       (SELECT COUNT(*) FROM audit_scans WHERE campaign_id = c.id) AS total_scans,
-		       (SELECT COUNT(*) FROM audit_scans WHERE campaign_id = c.id AND discrepancy_type != 'MATCH') AS discrepancies_count,
+		SELECT c.id, c.name, c.target_location, c.target_type, c.target_id, c.target_name,
+		       c.status, c.total_expected, c.total_scanned, c.total_matches, c.total_discrepancies, c.total_missing,
+		       c.notes, c.created_at, c.closed_at,
 		       (SELECT COUNT(*) FROM audit_scans WHERE campaign_id = c.id AND resolved = 1) AS resolved_count
 		FROM audit_campaigns c
 		ORDER BY c.created_at DESC
@@ -35,9 +35,15 @@ func (h *AppHandler) ListCampaigns(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var c models.AuditCampaign
 		var closedAtStr *string
-		if err := rows.Scan(&c.ID, &c.Name, &c.TargetLocation, &c.Status, &c.CreatedAt, &closedAtStr,
-			&c.TotalScans, &c.DiscrepanciesCount, &c.ResolvedCount); err == nil {
+		var targetID, notes *string
+		if err := rows.Scan(
+			&c.ID, &c.Name, &c.TargetLocation, &c.TargetType, &targetID, &c.TargetName,
+			&c.Status, &c.TotalExpected, &c.TotalScans, &c.TotalMatches, &c.DiscrepanciesCount, &c.MissingCount,
+			&notes, &c.CreatedAt, &closedAtStr, &c.ResolvedCount,
+		); err == nil {
 			c.ClosedAt = ParseNullTime(closedAtStr)
+			c.TargetID = targetID
+			c.Notes = notes
 			campaigns = append(campaigns, c)
 		}
 	}
@@ -83,15 +89,19 @@ func (h *AppHandler) GetCampaign(w http.ResponseWriter, r *http.Request) {
 func (h *AppHandler) GetCampaignByID(w http.ResponseWriter, id string) {
 	var c models.AuditCampaign
 	var closedAtStr *string
+	var targetID, notes *string
 	err := h.DB.QueryRow(`
-		SELECT c.id, c.name, c.target_location, c.status, c.created_at, c.closed_at,
-		       (SELECT COUNT(*) FROM audit_scans WHERE campaign_id = c.id) AS total_scans,
-		       (SELECT COUNT(*) FROM audit_scans WHERE campaign_id = c.id AND discrepancy_type != 'MATCH') AS discrepancies_count,
+		SELECT c.id, c.name, c.target_location, c.target_type, c.target_id, c.target_name,
+		       c.status, c.total_expected, c.total_scanned, c.total_matches, c.total_discrepancies, c.total_missing,
+		       c.notes, c.created_at, c.closed_at,
 		       (SELECT COUNT(*) FROM audit_scans WHERE campaign_id = c.id AND resolved = 1) AS resolved_count
 		FROM audit_campaigns c
 		WHERE c.id = ?
-	`, id).Scan(&c.ID, &c.Name, &c.TargetLocation, &c.Status, &c.CreatedAt, &closedAtStr,
-		&c.TotalScans, &c.DiscrepanciesCount, &c.ResolvedCount)
+	`, id).Scan(
+		&c.ID, &c.Name, &c.TargetLocation, &c.TargetType, &targetID, &c.TargetName,
+		&c.Status, &c.TotalExpected, &c.TotalScans, &c.TotalMatches, &c.DiscrepanciesCount, &c.MissingCount,
+		&notes, &c.CreatedAt, &closedAtStr, &c.ResolvedCount,
+	)
 
 	if err == sql.ErrNoRows {
 		ErrorResponse(w, http.StatusNotFound, "Campaña no encontrada")
@@ -101,6 +111,44 @@ func (h *AppHandler) GetCampaignByID(w http.ResponseWriter, id string) {
 		return
 	}
 	c.ClosedAt = ParseNullTime(closedAtStr)
+	c.TargetID = targetID
+	c.Notes = notes
+
+	// Consultar todos los escaneos de esta campaña
+	scanRows, err := h.DB.Query(`
+		SELECT s.id, s.campaign_id, s.asset_id, a.asset_tag, a.brand, a.model, a.category,
+		       s.expected_user_id, eu.full_name AS expected_user_name,
+		       s.found_with_user_id, fu.full_name AS found_with_user_name,
+		       s.expected_location, s.found_location, s.discrepancy_type, s.resolved, s.notes, s.scanned_at
+		FROM audit_scans s
+		JOIN assets a ON s.asset_id = a.id
+		LEFT JOIN users eu ON s.expected_user_id = eu.id
+		LEFT JOIN users fu ON s.found_with_user_id = fu.id
+		WHERE s.campaign_id = ?
+		ORDER BY s.scanned_at DESC
+	`, id)
+	if err == nil {
+		defer scanRows.Close()
+		c.Scans = []models.AuditScan{}
+		for scanRows.Next() {
+			var sc models.AuditScan
+			var expUID, expUName, fndUID, fndUName, scNotes *string
+			var resInt int
+			if err := scanRows.Scan(
+				&sc.ID, &sc.CampaignID, &sc.AssetID, &sc.AssetTag, &sc.AssetBrand, &sc.AssetModel, &sc.AssetCategory,
+				&expUID, &expUName, &fndUID, &fndUName,
+				&sc.ExpectedLocation, &sc.FoundLocation, &sc.DiscrepancyType, &resInt, &scNotes, &sc.ScannedAt,
+			); err == nil {
+				sc.ExpectedUserID = expUID
+				sc.ExpectedUserName = expUName
+				sc.FoundWithUserID = fndUID
+				sc.FoundWithUserName = fndUName
+				sc.Resolved = resInt == 1
+				sc.Notes = scNotes
+				c.Scans = append(c.Scans, sc)
+			}
+		}
+	}
 
 	JSONResponse(w, http.StatusOK, c)
 }
@@ -578,8 +626,10 @@ func (h *AppHandler) GetTargetExpectedAssets(w http.ResponseWriter, r *http.Requ
 }
 
 // ScanTargetAsset evalúa un activo escaneado en vivo contra el objetivo seleccionado (persona o locación)
+// y GUARDA DE FORMA PERSISTENTE la sesión de auditoría, el escaneo y el historial del activo en SQLite
 func (h *AppHandler) ScanTargetAsset(w http.ResponseWriter, r *http.Request) {
 	var req struct {
+		CampaignID string `json:"campaign_id"`
 		TargetType string `json:"target_type"` // "USER" o "LOCATION"
 		TargetID   string `json:"target_id"`
 		TargetName string `json:"target_name"`
@@ -595,6 +645,47 @@ func (h *AppHandler) ScanTargetAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 1. Obtener o crear de forma persistente la campaña de auditoría
+	campaignID := req.CampaignID
+	if campaignID == "" {
+		err := h.DB.QueryRow(`
+			SELECT id FROM audit_campaigns
+			WHERE status = 'OPEN' AND target_type = ? AND target_id = ?
+			ORDER BY created_at DESC LIMIT 1
+		`, req.TargetType, req.TargetID).Scan(&campaignID)
+
+		if err == sql.ErrNoRows {
+			campaignID = "cmp-" + uuid.New().String()[:8]
+			targetTypeLabel := "Colaborador"
+			if req.TargetType == "LOCATION" {
+				targetTypeLabel = "Sede"
+			}
+			campName := fmt.Sprintf("Auditoría %s: %s - %s", targetTypeLabel, req.TargetName, time.Now().Format("02/01/2006"))
+			loc := req.TargetName
+			if req.TargetType == "LOCATION" {
+				loc = req.TargetID
+			}
+
+			// Calcular total esperado
+			var expectedCount int
+			if req.TargetType == "USER" {
+				_ = h.DB.QueryRow("SELECT COUNT(*) FROM assets WHERE assigned_to_user_id = ? AND status != 'RETIRED'", req.TargetID).Scan(&expectedCount)
+			} else {
+				_ = h.DB.QueryRow("SELECT COUNT(*) FROM assets WHERE (location = ? OR location LIKE ?) AND status != 'RETIRED'", req.TargetID, "%"+req.TargetID+"%").Scan(&expectedCount)
+			}
+
+			_, err = h.DB.Exec(`
+				INSERT INTO audit_campaigns (id, name, target_location, target_type, target_id, target_name, status, total_expected, total_scanned, total_matches, total_discrepancies, total_missing)
+				VALUES (?, ?, ?, ?, ?, ?, 'OPEN', ?, 0, 0, 0, 0)
+			`, campaignID, campName, loc, req.TargetType, req.TargetID, req.TargetName, expectedCount)
+			if err != nil {
+				ErrorResponse(w, http.StatusInternalServerError, "Error creando campaña de auditoría: "+err.Error())
+				return
+			}
+		}
+	}
+
+	// 2. Consultar activo en la base de datos
 	query := `
 		SELECT a.id, a.asset_tag, a.serial_number, a.category, a.brand, a.model, a.status,
 		       a.assigned_to_user_id, u.full_name AS assigned_to_name,
@@ -623,14 +714,10 @@ func (h *AppHandler) ScanTargetAsset(w http.ResponseWriter, r *http.Request) {
 	a.LastAuditedAt = ParseNullTime(lastAuditedStr)
 	a.Specs = json.RawMessage(specsStr)
 
-	// Actualizar fecha de auditoría física
-	now := time.Now()
-	_, _ = h.DB.Exec("UPDATE assets SET last_audited_at = ? WHERE id = ?", now, a.ID)
-	a.LastAuditedAt = &now
-
-	// Determinar tipo de coincidencia / discrepancia
+	// 3. Determinar tipo de coincidencia / discrepancia
 	discrepancyType := "MATCH"
 	message := "Activo verificado correctamente."
+	resolved := 1
 
 	if req.TargetType == "USER" {
 		currentUserID := ""
@@ -641,9 +728,11 @@ func (h *AppHandler) ScanTargetAsset(w http.ResponseWriter, r *http.Request) {
 		if currentUserID == req.TargetID {
 			discrepancyType = "MATCH"
 			message = fmt.Sprintf("Coincide: el equipo pertenece a %s", req.TargetName)
+			resolved = 1
 		} else if currentUserID == "" {
 			discrepancyType = "UNASSIGNED"
 			message = "Activo en stock (sin asignar) encontrado en posesión de este colaborador."
+			resolved = 0
 		} else {
 			discrepancyType = "WRONG_USER"
 			ownerName := "otro colaborador"
@@ -651,6 +740,7 @@ func (h *AppHandler) ScanTargetAsset(w http.ResponseWriter, r *http.Request) {
 				ownerName = *a.AssignedToName
 			}
 			message = fmt.Sprintf("Discrepancia: El equipo está registrado a nombre de %s.", ownerName)
+			resolved = 0
 		}
 	} else {
 		// LOCATION
@@ -658,16 +748,70 @@ func (h *AppHandler) ScanTargetAsset(w http.ResponseWriter, r *http.Request) {
 		if locMatch {
 			discrepancyType = "MATCH"
 			message = fmt.Sprintf("Coincide: el equipo pertenece a la sede %s", req.TargetID)
+			resolved = 1
 		} else if strings.TrimSpace(a.Location) == "" {
 			discrepancyType = "UNASSIGNED_LOCATION"
 			message = "Activo sin sede asignada encontrado en este sitio."
+			resolved = 0
 		} else {
 			discrepancyType = "WRONG_LOCATION"
 			message = fmt.Sprintf("Discrepancia: El equipo está registrado en la sede %s.", a.Location)
+			resolved = 0
 		}
 	}
 
+	// 4. GUARDAR PERSISTENCIA EN SQLite
+	now := time.Now()
+
+	// 4a. Actualizar fecha de auditoría física en el activo
+	_, _ = h.DB.Exec("UPDATE assets SET last_audited_at = ? WHERE id = ?", now, a.ID)
+	a.LastAuditedAt = &now
+
+	// 4b. Registrar escaneo en audit_scans (reemplaza si ya existía en la misma campaña)
+	scanID := "scn-" + uuid.New().String()[:8]
+	foundUserID := sql.NullString{}
+	if req.TargetType == "USER" {
+		foundUserID = sql.NullString{String: req.TargetID, Valid: true}
+	}
+	foundLoc := req.TargetName
+	if req.TargetType == "LOCATION" {
+		foundLoc = req.TargetID
+	}
+
+	_, _ = h.DB.Exec("DELETE FROM audit_scans WHERE campaign_id = ? AND asset_id = ?", campaignID, a.ID)
+
+	_, err = h.DB.Exec(`
+		INSERT INTO audit_scans (id, campaign_id, asset_id, expected_user_id, found_with_user_id, expected_location, found_location, discrepancy_type, resolved, notes, scanned_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, scanID, campaignID, a.ID, a.AssignedToUserID, foundUserID, a.Location, foundLoc, discrepancyType, resolved, message, now)
+	if err != nil {
+		ErrorResponse(w, http.StatusInternalServerError, "Error guardando escaneo en DB: "+err.Error())
+		return
+	}
+
+	// 4c. Registrar en asset_history (audit log inmutable del equipo)
+	histID := "his-" + uuid.New().String()[:8]
+	actionType := "AUDIT_MATCH"
+	if discrepancyType != "MATCH" {
+		actionType = "AUDIT_DISCREPANCY"
+	}
+	histNotes := fmt.Sprintf("Auditoría física [%s]: %s - %s", req.TargetName, discrepancyType, message)
+	_, _ = h.DB.Exec(`
+		INSERT INTO asset_history (id, asset_id, action_type, notes, responsiva_status, created_at)
+		VALUES (?, ?, ?, ?, 'NOT_REQUIRED', ?)
+	`, histID, a.ID, actionType, histNotes, now)
+
+	// 4d. Actualizar contadores en la campaña
+	_, _ = h.DB.Exec(`
+		UPDATE audit_campaigns
+		SET total_scanned = (SELECT COUNT(*) FROM audit_scans WHERE campaign_id = ? AND discrepancy_type != 'MISSING'),
+		    total_matches = (SELECT COUNT(*) FROM audit_scans WHERE campaign_id = ? AND discrepancy_type = 'MATCH'),
+		    total_discrepancies = (SELECT COUNT(*) FROM audit_scans WHERE campaign_id = ? AND discrepancy_type NOT IN ('MATCH', 'MISSING'))
+		WHERE id = ?
+	`, campaignID, campaignID, campaignID, campaignID)
+
 	JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"campaign_id":      campaignID,
 		"asset":            a,
 		"discrepancy_type": discrepancyType,
 		"message":          message,
@@ -675,9 +819,100 @@ func (h *AppHandler) ScanTargetAsset(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// FinishTargetAudit cierra y guarda formalmente la auditoría en la base de datos,
+// calculando los equipos que quedaron faltando (MISSING) y guardando el historial inmutable
+func (h *AppHandler) FinishTargetAudit(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		CampaignID string `json:"campaign_id"`
+		Notes      string `json:"notes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		ErrorResponse(w, http.StatusBadRequest, "Payload inválido: "+err.Error())
+		return
+	}
+
+	if req.CampaignID == "" {
+		ErrorResponse(w, http.StatusBadRequest, "campaign_id es obligatorio")
+		return
+	}
+
+	// 1. Obtener datos de la campaña
+	var c models.AuditCampaign
+	var targetID *string
+	err := h.DB.QueryRow(`
+		SELECT id, name, target_location, target_type, target_id, target_name, status, total_expected
+		FROM audit_campaigns WHERE id = ?
+	`, req.CampaignID).Scan(&c.ID, &c.Name, &c.TargetLocation, &c.TargetType, &targetID, &c.TargetName, &c.Status, &c.TotalExpected)
+	if err == sql.ErrNoRows {
+		ErrorResponse(w, http.StatusNotFound, "Campaña de auditoría no encontrada")
+		return
+	}
+
+	now := time.Now()
+
+	// 2. Identificar equipos esperados que NO fueron escaneados -> marcarlos MISSING
+	var expectedRows *sql.Rows
+	if c.TargetType == "USER" && targetID != nil {
+		expectedRows, err = h.DB.Query("SELECT id, location, assigned_to_user_id FROM assets WHERE assigned_to_user_id = ? AND status != 'RETIRED'", *targetID)
+	} else if targetID != nil {
+		expectedRows, err = h.DB.Query("SELECT id, location, assigned_to_user_id FROM assets WHERE (location = ? OR location LIKE ?) AND status != 'RETIRED'", *targetID, "%"+*targetID+"%")
+	}
+
+	if err == nil && expectedRows != nil {
+		defer expectedRows.Close()
+		for expectedRows.Next() {
+			var assetID, expLoc string
+			var expUserID *string
+			if err := expectedRows.Scan(&assetID, &expLoc, &expUserID); err == nil {
+				var count int
+				_ = h.DB.QueryRow("SELECT COUNT(*) FROM audit_scans WHERE campaign_id = ? AND asset_id = ?", c.ID, assetID).Scan(&count)
+				if count == 0 {
+					scanID := "scn-" + uuid.New().String()[:8]
+					_, _ = h.DB.Exec(`
+						INSERT INTO audit_scans (id, campaign_id, asset_id, expected_user_id, found_with_user_id, expected_location, found_location, discrepancy_type, resolved, notes, scanned_at)
+						VALUES (?, ?, ?, ?, NULL, ?, 'NO_LOCALIZADO', 'MISSING', 0, 'Equipo faltante (no presentado durante la auditoría)', ?)
+					`, scanID, c.ID, assetID, expUserID, expLoc, now)
+
+					histID := "his-" + uuid.New().String()[:8]
+					histNotes := fmt.Sprintf("Activo faltante/no presentado en auditoría: %s", c.Name)
+					_, _ = h.DB.Exec(`
+						INSERT INTO asset_history (id, asset_id, action_type, notes, responsiva_status, created_at)
+						VALUES (?, ?, 'AUDIT_DISCREPANCY', ?, 'NOT_REQUIRED', ?)
+					`, histID, assetID, histNotes, now)
+				}
+			}
+		}
+	}
+
+	// 3. Cerrar campaña y actualizar contadores finales
+	notesVal := req.Notes
+	if notesVal == "" {
+		notesVal = "Auditoría completada y conciliada en el sistema"
+	}
+
+	_, err = h.DB.Exec(`
+		UPDATE audit_campaigns
+		SET status = 'CLOSED',
+		    closed_at = ?,
+		    notes = ?,
+		    total_scanned = (SELECT COUNT(*) FROM audit_scans WHERE campaign_id = ? AND discrepancy_type != 'MISSING'),
+		    total_matches = (SELECT COUNT(*) FROM audit_scans WHERE campaign_id = ? AND discrepancy_type = 'MATCH'),
+		    total_discrepancies = (SELECT COUNT(*) FROM audit_scans WHERE campaign_id = ? AND discrepancy_type NOT IN ('MATCH', 'MISSING')),
+		    total_missing = (SELECT COUNT(*) FROM audit_scans WHERE campaign_id = ? AND discrepancy_type = 'MISSING')
+		WHERE id = ?
+	`, now, notesVal, c.ID, c.ID, c.ID, c.ID, c.ID)
+	if err != nil {
+		ErrorResponse(w, http.StatusInternalServerError, "Error cerrando auditoría: "+err.Error())
+		return
+	}
+
+	h.GetCampaignByID(w, c.ID)
+}
+
 // ReconcileTargetAsset permite asignar el activo hallado al objetivo o marcarlo LOST
 func (h *AppHandler) ReconcileTargetAsset(w http.ResponseWriter, r *http.Request) {
 	var req struct {
+		CampaignID string `json:"campaign_id"`
 		Action     string `json:"action"` // "ASSIGN_TO_TARGET" o "MARK_LOST"
 		AssetID    string `json:"asset_id"`
 		TargetType string `json:"target_type"` // "USER" o "LOCATION"
@@ -740,6 +975,11 @@ func (h *AppHandler) ReconcileTargetAsset(w http.ResponseWriter, r *http.Request
 			VALUES (?, ?, 'AUDIT_MATCH', ?, 'NOT_REQUIRED')
 		`, histID, req.AssetID, histNotes)
 
+		// Marcar resuelto en audit_scans si aplica
+		if req.CampaignID != "" {
+			_, _ = tx.Exec("UPDATE audit_scans SET resolved = 1 WHERE campaign_id = ? AND asset_id = ?", req.CampaignID, req.AssetID)
+		}
+
 	} else if req.Action == "MARK_LOST" {
 		_, err = tx.Exec(`
 			UPDATE assets
@@ -758,6 +998,10 @@ func (h *AppHandler) ReconcileTargetAsset(w http.ResponseWriter, r *http.Request
 			INSERT INTO asset_history (id, asset_id, action_type, notes, responsiva_status)
 			VALUES (?, ?, 'STATUS_CHANGE', ?, 'NOT_REQUIRED')
 		`, histID, req.AssetID, histNotes)
+
+		if req.CampaignID != "" {
+			_, _ = tx.Exec("UPDATE audit_scans SET resolved = 1 WHERE campaign_id = ? AND asset_id = ?", req.CampaignID, req.AssetID)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

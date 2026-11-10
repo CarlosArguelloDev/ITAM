@@ -58,7 +58,16 @@ CREATE TABLE IF NOT EXISTS audit_campaigns (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     target_location TEXT NOT NULL,
+    target_type TEXT NOT NULL DEFAULT 'LOCATION',
+    target_id TEXT NULLABLE,
+    target_name TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL CHECK(status IN ('OPEN', 'CLOSED')) DEFAULT 'OPEN',
+    total_expected INTEGER NOT NULL DEFAULT 0,
+    total_scanned INTEGER NOT NULL DEFAULT 0,
+    total_matches INTEGER NOT NULL DEFAULT 0,
+    total_discrepancies INTEGER NOT NULL DEFAULT 0,
+    total_missing INTEGER NOT NULL DEFAULT 0,
+    notes TEXT NULLABLE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     closed_at DATETIME NULLABLE
 );
@@ -71,8 +80,9 @@ CREATE TABLE IF NOT EXISTS audit_scans (
     found_with_user_id TEXT NULLABLE REFERENCES users(id) ON DELETE SET NULL,
     expected_location TEXT NOT NULL,
     found_location TEXT NOT NULL,
-    discrepancy_type TEXT NOT NULL CHECK(discrepancy_type IN ('MATCH', 'WRONG_USER', 'WRONG_LOCATION', 'UNEXPECTED_STATUS', 'MISSING')),
+    discrepancy_type TEXT NOT NULL,
     resolved INTEGER NOT NULL DEFAULT 0,
+    notes TEXT NULLABLE,
     scanned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
