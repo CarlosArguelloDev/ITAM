@@ -265,6 +265,7 @@ for (const a of rawAssignments) {
   let brand = a.brand || 'Generico';
   let model = a.model || a.device;
 
+  let cleanSN = a.serial || 'NO LEGIBLE';
   const specsObj = {
     original_device: a.device,
     description: a.desc,
@@ -272,10 +273,44 @@ for (const a of rawAssignments) {
     start_date: a.startDate || null,
   };
 
+  if (cleanSN.includes('/')) {
+    const parts = cleanSN.split('/').map(p => p.trim());
+    const p1 = parts[0];
+    const p2 = parts[1] || '';
+
+    if (cat === 'SCANNER') {
+      cleanSN = (p1.startsWith('S') && /^\d+$/.test(p1.slice(1))) ? p1.slice(1) : p1;
+      if (p2) {
+        const hex = p2.replace(/[^A-Fa-f0-9]/g, '').toUpperCase();
+        specsObj.mac_address = hex.length === 12 ? hex.match(/.{1,2}/g).join(':') : hex;
+        specsObj.raw_mac = p2;
+      }
+    } else if (cat === 'SIM-CARD') {
+      cleanSN = p1;
+      if (p2) specsObj.puk = p2;
+    } else if (cat === 'TELEFONO') {
+      const c1 = p1.replace(/\s+/g, '');
+      const c2 = p2.replace(/\s+/g, '');
+      let imei = '', appleSn = '';
+      if (c1.startsWith('35') && c1.length >= 14) {
+        imei = c1;
+        appleSn = c2;
+      } else {
+        imei = c2;
+        appleSn = c1;
+      }
+      if (appleSn.startsWith('S') && (appleSn.length === 11 || appleSn.length === 13)) {
+        appleSn = appleSn.slice(1);
+      }
+      cleanSN = appleSn;
+      if (imei) specsObj.imei = imei;
+    }
+  }
+
   assets.push({
     id: genId('ast'),
     tag,
-    serial: a.serial || 'NO LEGIBLE',
+    serial: cleanSN,
     category: cat,
     brand,
     model,
