@@ -35,6 +35,15 @@ import {
   Share2,
   Eye,
   Barcode,
+  Smartphone,
+  Radio,
+  Printer,
+  Edit3,
+  Trash2,
+  List,
+  Network,
+  Check,
+  Tag,
 } from 'lucide-react';
 
 import { User, Asset, UserDiagramResponse, AssetHistory, AlertItem } from '../types';
@@ -44,6 +53,7 @@ import { SwapModal } from '../components/SwapModal';
 import { UserFormModal } from '../components/UserFormModal';
 import { QuickUserAuditModal } from '../components/QuickUserAuditModal';
 import { QuickUserAssignModal } from '../components/QuickUserAssignModal';
+import { AssetFormModal } from '../components/AssetFormModal';
 
 // --- NODOS PERSONALIZADOS PARA REACT FLOW ---
 const CustomUserNode = ({ data }: { data: any }) => (
@@ -124,19 +134,57 @@ const CustomMonitorNode = ({ data }: { data: any }) => (
   </div>
 );
 
-const CustomPeripheralNode = ({ data }: { data: any }) => (
-  <div className="bg-white rounded-xl border border-slate-300 p-2.5 shadow-xs min-w-[190px] text-xs">
-    <Handle type="target" position={Position.Top} className="!bg-slate-400" />
-    <div className="flex items-center justify-between mb-0.5">
-      <div className="flex items-center gap-1 text-slate-500 font-bold text-[9px] uppercase">
-        <Headphones className="w-3 h-3" />
-        <span>Accesorio</span>
+const CustomPhoneNode = ({ data }: { data: any }) => (
+  <div className="bg-white rounded-xl border-2 border-emerald-600 p-3.5 shadow-md min-w-[230px] text-xs">
+    <Handle type="target" position={Position.Top} className="!bg-emerald-600" />
+    <Handle type="source" position={Position.Bottom} className="!bg-emerald-600" />
+    <div className="flex items-center justify-between mb-1.5">
+      <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-[10px] uppercase tracking-wider">
+        <Smartphone className="w-3.5 h-3.5" />
+        <span>{data.category === 'IPAD' ? 'iPad / Tablet' : 'Línea Móvil'}</span>
       </div>
-      <span className="font-mono text-[9px] text-slate-500">{data.asset_tag}</span>
+      <span className="font-mono text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+        {data.asset_tag}
+      </span>
     </div>
-    <p className="font-medium text-slate-800 truncate">{data.model}</p>
+    <p className="font-bold text-slate-900 text-xs">
+      {data.brand} {data.model}
+    </p>
+    <p className="text-[11px] font-mono text-slate-500 mt-0.5">S/N: {data.serial_number}</p>
+    <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+      <span className="font-mono truncate max-w-[140px]">
+        {data.specs?.imei ? `IMEI: ${data.specs.imei}` : data.specs?.description || 'Dispositivo Móvil'}
+      </span>
+      <span className="font-semibold text-emerald-700">{data.location}</span>
+    </div>
   </div>
 );
+
+const CustomPeripheralNode = ({ data }: { data: any }) => {
+  const isAudio = data.category === 'AUDIFONOS';
+  const isSim = data.category === 'SIM-CARD';
+  const isScanner = data.category === 'SCANNER';
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-300 p-2.5 shadow-xs min-w-[190px] text-xs">
+      <Handle type="target" position={Position.Top} className="!bg-slate-400" />
+      <Handle type="source" position={Position.Bottom} className="!bg-slate-400" />
+      <div className="flex items-center justify-between mb-0.5">
+        <div className="flex items-center gap-1 text-slate-600 font-bold text-[9px] uppercase">
+          {isAudio && <Headphones className="w-3 h-3 text-amber-600" />}
+          {isSim && <Radio className="w-3 h-3 text-purple-600" />}
+          {isScanner && <Barcode className="w-3 h-3 text-indigo-600" />}
+          {!isAudio && !isSim && !isScanner && <Box className="w-3 h-3 text-slate-500" />}
+          <span>{data.category}</span>
+        </div>
+        <span className="font-mono text-[9px] text-slate-500">{data.asset_tag}</span>
+      </div>
+      <p className="font-medium text-slate-800 truncate">{data.brand} {data.model}</p>
+      <p className="text-[10px] font-mono text-slate-400">S/N: {data.serial_number}</p>
+      {data.specs?.puk && <p className="text-[9px] text-purple-600 font-mono">PUK: {data.specs.puk}</p>}
+    </div>
+  );
+};
 
 export const UsersDiagramView: React.FC = () => {
   // Estado para alternar entre Tabla de Usuarios y Vista de Diagrama
@@ -169,16 +217,60 @@ export const UsersDiagramView: React.FC = () => {
   const [assignTargetUser, setAssignTargetUser] = useState<User | null>(null);
   const [availableStockAssets, setAvailableStockAssets] = useState<Asset[]>([]);
 
+  // Pestaña en vista de detalle: LIST (Lista y gestión) vs DIAGRAM (Diagrama de red)
+  const [activeDetailTab, setActiveDetailTab] = useState<'LIST' | 'DIAGRAM'>('LIST');
+
+  // Estado para editar un activo directamente desde el listado del colaborador
+  const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+
+  // Estados para impresión Brother PT-D410
+  const [printingAssetId, setPrintingAssetId] = useState<string | null>(null);
+  const [printFeedback, setPrintFeedback] = useState<{ id: string; success: boolean; msg: string } | null>(null);
+
   const nodeTypes = useMemo(
     () => ({
       userNode: CustomUserNode,
       laptopNode: CustomLaptopNode,
+      phoneNode: CustomPhoneNode,
       dockingNode: CustomDockingNode,
       monitorNode: CustomMonitorNode,
       peripheralNode: CustomPeripheralNode,
     }),
     []
   );
+
+  const handleUnassign = async (asset: Asset) => {
+    const confirmMsg = `¿Desasignar el equipo ${asset.asset_tag} (${asset.brand} ${asset.model}) de ${currentUser?.full_name} y devolverlo a stock DISPONIBLE?`;
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    try {
+      await api.unassignAsset({
+        asset_id: asset.id,
+        notes: `Desasignado desde la administración de ${currentUser?.full_name}`,
+      });
+      if (selectedUserId) await loadUserDetails(selectedUserId);
+      await loadUsers();
+    } catch (err: any) {
+      alert(`Error al desasignar: ${err.message}`);
+    }
+  };
+
+  const handlePrintBrother = async (asset: Asset) => {
+    try {
+      setPrintingAssetId(asset.id);
+      setPrintFeedback(null);
+      const res = await api.printBrotherLabel(asset.id);
+      setPrintFeedback({ id: asset.id, success: true, msg: `Etiqueta impresa en Brother (${res.printer || 'PT-D410'})` });
+      setTimeout(() => setPrintFeedback(null), 4000);
+    } catch (err: any) {
+      setPrintFeedback({ id: asset.id, success: false, msg: `Error de impresión: ${err.message}` });
+      setTimeout(() => setPrintFeedback(null), 5000);
+    } finally {
+      setPrintingAssetId(null);
+    }
+  };
 
   useEffect(() => {
     loadUsers();
@@ -727,161 +819,454 @@ export const UsersDiagramView: React.FC = () => {
               </div>
 
               {/* Resumen numérico del kit */}
-              <div className="flex items-center gap-3 text-xs">
-                <div className="text-center px-3 py-1 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <div className="text-center px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-200">
                   <span className="text-[10px] text-slate-400 block uppercase font-bold">Total</span>
-                  <span className="text-base font-bold text-slate-900">
+                  <span className="text-sm font-bold text-slate-900">
                     {diagramData?.summary.total || 0}
                   </span>
                 </div>
-                <div className="text-center px-3 py-1 bg-sky-50 rounded-xl border border-sky-200 text-sky-800">
+                <div className="text-center px-3 py-1.5 bg-sky-50 rounded-xl border border-sky-200 text-sky-800">
                   <span className="text-[10px] text-sky-600 block uppercase font-bold">Laptops</span>
-                  <span className="text-base font-bold">{diagramData?.summary.laptops || 0}</span>
+                  <span className="text-sm font-bold">{diagramData?.summary.laptops || 0}</span>
                 </div>
-                <div className="text-center px-3 py-1 bg-indigo-50 rounded-xl border border-indigo-200 text-indigo-800">
+                <div className="text-center px-3 py-1.5 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-800">
+                  <span className="text-[10px] text-emerald-600 block uppercase font-bold">Celulares</span>
+                  <span className="text-sm font-bold">{diagramData?.summary.phones || 0}</span>
+                </div>
+                <div className="text-center px-3 py-1.5 bg-indigo-50 rounded-xl border border-indigo-200 text-indigo-800">
                   <span className="text-[10px] text-indigo-600 block uppercase font-bold">Monitores</span>
-                  <span className="text-base font-bold">{diagramData?.summary.monitors || 0}</span>
+                  <span className="text-sm font-bold">{diagramData?.summary.monitors || 0}</span>
                 </div>
-                <div className="text-center px-3 py-1 bg-teal-50 rounded-xl border border-teal-200 text-teal-800">
+                <div className="text-center px-3 py-1.5 bg-teal-50 rounded-xl border border-teal-200 text-teal-800">
                   <span className="text-[10px] text-teal-600 block uppercase font-bold">Docks</span>
-                  <span className="text-base font-bold">{diagramData?.summary.dockings || 0}</span>
+                  <span className="text-sm font-bold">{diagramData?.summary.dockings || 0}</span>
+                </div>
+                <div className="text-center px-3 py-1.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-800">
+                  <span className="text-[10px] text-amber-600 block uppercase font-bold">Accesorios</span>
+                  <span className="text-sm font-bold">{diagramData?.summary.peripherals || 0}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* CUERPO PRINCIPAL: LIENZO CENTRAL (BLOQUE 2) + COLUMNA LATERAL DERECHA (BLOQUE 3) */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-0">
-            {/* BLOQUE 2: LIENZO CENTRAL CON EL DIAGRAMA DE NODOS (@xyflow/react) */}
-            <div className="lg:col-span-8 bg-white rounded-2xl border border-[#E2E8F0] shadow-sm flex flex-col overflow-hidden relative">
-              <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/70 shrink-0">
-                <div className="flex items-center gap-2">
-                  <Laptop className="w-4 h-4 text-sky-600" />
+          {/* Barra de Pestañas y Acciones Principales */}
+          <div className="bg-white px-5 py-3 rounded-2xl border border-[#E2E8F0] shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
+            {/* Selector de Pestañas */}
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+              <button
+                onClick={() => setActiveDetailTab('LIST')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition ${
+                  activeDetailTab === 'LIST'
+                    ? 'bg-white text-sky-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <List className="w-4 h-4" />
+                <span>Lista y Gestión de Equipos ({currentUser.assigned_assets?.length || 0})</span>
+              </button>
+
+              <button
+                onClick={() => setActiveDetailTab('DIAGRAM')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition ${
+                  activeDetailTab === 'DIAGRAM'
+                    ? 'bg-white text-sky-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Network className="w-4 h-4" />
+                <span>Diagrama de Red y Custodia</span>
+              </button>
+            </div>
+
+            {/* Acciones de Custodia Rápidas */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setAssignTargetUser(currentUser)}
+                className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Asignar Equipo</span>
+              </button>
+
+              <button
+                onClick={() => setSwapModalOpen(true)}
+                className="flex items-center gap-1.5 bg-white hover:bg-amber-50 text-amber-700 border border-amber-300 font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition"
+              >
+                <ArrowLeftRight className="w-4 h-4" />
+                <span>Cambio (Swap)</span>
+              </button>
+
+              <button
+                onClick={() => setResponsivaModalOpen(true)}
+                className="flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Carta Responsiva</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Feedback de impresión Brother si aplica */}
+          {printFeedback && (
+            <div
+              className={`p-3 rounded-xl text-xs font-semibold flex items-center justify-between border ${
+                printFeedback.success
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-rose-50 text-rose-800 border-rose-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Printer className="w-4 h-4" />
+                <span>{printFeedback.msg}</span>
+              </div>
+              <button
+                onClick={() => setPrintFeedback(null)}
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* VISTA 1: LISTADO Y GESTIÓN DE EQUIPOS DEL COLABORADOR */}
+          {activeDetailTab === 'LIST' && (
+            <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm flex-1 flex flex-col overflow-hidden min-h-0">
+              <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70 shrink-0">
+                <div>
                   <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                    Diagrama de Custodia y Asignación de Equipos
+                    Equipos en Custodia de {currentUser.full_name}
                   </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Administra, edita detalles, imprime etiquetas Brother o desasigna activos directamente
+                  </p>
                 </div>
-                <span className="text-[11px] text-slate-400">
-                  Arrastra los nodos o haz zoom para explorar
+                <span className="text-xs font-mono font-bold text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                  {currentUser.assigned_assets?.length || 0} activos asignados
                 </span>
               </div>
 
-              <div className="flex-1 w-full h-full min-h-[420px] bg-slate-50/50">
-                <ReactFlow
-                  nodes={nodes}
-                  edges={edges}
-                  nodeTypes={nodeTypes}
-                  onNodesChange={onNodesChange}
-                  onEdgesChange={onEdgesChange}
-                  fitView
-                  fitViewOptions={{ padding: 0.3 }}
-                >
-                  <Background gap={16} size={1} color="#CBD5E1" />
-                  <Controls className="!bg-white !border-slate-200 !shadow-sm !rounded-xl" />
-                </ReactFlow>
+              <div className="flex-1 overflow-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50/90 text-slate-400 font-semibold text-[10px] uppercase tracking-wider sticky top-0 border-b border-slate-200">
+                    <tr>
+                      <th className="py-3 px-5">Categoría / Tag</th>
+                      <th className="py-3 px-4">Dispositivo y Serie</th>
+                      <th className="py-3 px-4">Jerarquía / Vínculo</th>
+                      <th className="py-3 px-4">Especificaciones</th>
+                      <th className="py-3 px-3">Sede</th>
+                      <th className="py-3 px-5 text-right">Acciones de Gestión</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(currentUser.assigned_assets || []).map((ast) => {
+                      const isLaptop = ast.category === 'LAPTOP' || ast.category === 'WORKSTATION';
+                      const isPhone = ast.category === 'TELEFONO' || ast.category === 'IPAD';
+                      const isMonitor = ast.category === 'MONITOR';
+                      const isDock = ast.category === 'DOCKING';
+                      const isSim = ast.category === 'SIM-CARD';
+                      const isAudio = ast.category === 'AUDIFONOS';
+                      const isScanner = ast.category === 'SCANNER';
+
+                      return (
+                        <tr key={ast.id} className="hover:bg-slate-50/70 transition">
+                          {/* Categoría y Tag */}
+                          <td className="py-3 px-5">
+                            <div className="flex items-center gap-2.5">
+                              <div
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                  isLaptop
+                                    ? 'bg-sky-100 text-sky-700'
+                                    : isPhone
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : isMonitor
+                                    ? 'bg-indigo-100 text-indigo-700'
+                                    : isDock
+                                    ? 'bg-teal-100 text-teal-700'
+                                    : isSim
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : isAudio
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-slate-100 text-slate-700'
+                                }`}
+                              >
+                                {isLaptop && <Laptop className="w-4 h-4" />}
+                                {isPhone && <Smartphone className="w-4 h-4" />}
+                                {isMonitor && <Monitor className="w-4 h-4" />}
+                                {isDock && <Cpu className="w-4 h-4" />}
+                                {isSim && <Radio className="w-4 h-4" />}
+                                {isAudio && <Headphones className="w-4 h-4" />}
+                                {isScanner && <Barcode className="w-4 h-4" />}
+                                {!isLaptop && !isPhone && !isMonitor && !isDock && !isSim && !isAudio && !isScanner && (
+                                  <Box className="w-4 h-4" />
+                                )}
+                              </div>
+                              <div>
+                                <span className="font-mono font-bold text-slate-900 block text-xs">
+                                  {ast.asset_tag}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-semibold uppercase">
+                                  {ast.category}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Dispositivo y Serie */}
+                          <td className="py-3 px-4">
+                            <span className="font-bold text-slate-800 block text-xs">
+                              {ast.brand} {ast.model}
+                            </span>
+                            <span className="text-[11px] font-mono text-slate-500">
+                              S/N: {ast.serial_number}
+                            </span>
+                          </td>
+
+                          {/* Jerarquía / Vínculo */}
+                          <td className="py-3 px-4">
+                            {ast.parent_asset_tag ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200">
+                                <span>🔗 Hijo de</span>
+                                <span className="font-mono font-bold">{ast.parent_asset_tag}</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                <span>Directo al Colaborador</span>
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Especificaciones */}
+                          <td className="py-3 px-4 text-slate-600 text-[11px]">
+                            {ast.specs?.imei && (
+                              <span className="block font-mono text-[10px] text-emerald-700">
+                                IMEI: {ast.specs.imei}
+                              </span>
+                            )}
+                            {ast.specs?.puk && (
+                              <span className="block font-mono text-[10px] text-purple-700">
+                                PUK: {ast.specs.puk}
+                              </span>
+                            )}
+                            {ast.specs?.ram || ast.specs?.cpu ? (
+                              <span>
+                                {ast.specs.ram} • {ast.specs.cpu}
+                              </span>
+                            ) : ast.specs?.inches ? (
+                              <span>{ast.specs.inches}" Pulgadas</span>
+                            ) : ast.specs?.power_watts ? (
+                              <span>{ast.specs.power_watts}</span>
+                            ) : (
+                              <span className="text-slate-400 italic">
+                                {ast.specs?.description || 'Sin datos extra'}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Sede */}
+                          <td className="py-3 px-3">
+                            <span className="font-semibold text-slate-700 text-xs">
+                              {ast.location}
+                            </span>
+                          </td>
+
+                          {/* Acciones */}
+                          <td className="py-3 px-5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Editar activo */}
+                              <button
+                                onClick={() => setEditingAsset(ast)}
+                                className="inline-flex items-center gap-1 bg-white hover:bg-sky-50 text-sky-700 border border-sky-200 font-bold text-xs px-2.5 py-1.5 rounded-lg shadow-xs transition"
+                                title="Editar características, modelo, serie o equipo padre"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span>Editar</span>
+                              </button>
+
+                              {/* Imprimir en Brother PT-D410 */}
+                              <button
+                                onClick={() => handlePrintBrother(ast)}
+                                disabled={printingAssetId === ast.id}
+                                className="inline-flex items-center gap-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold text-xs px-2.5 py-1.5 rounded-lg shadow-xs transition disabled:opacity-50"
+                                title="Imprimir etiqueta en Brother PT-D410"
+                              >
+                                <Printer
+                                  className={`w-3.5 h-3.5 ${
+                                    printingAssetId === ast.id ? 'animate-spin' : ''
+                                  }`}
+                                />
+                                <span>Etiqueta</span>
+                              </button>
+
+                              {/* Desasignar */}
+                              <button
+                                onClick={() => handleUnassign(ast)}
+                                className="inline-flex items-center gap-1 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 font-bold text-xs px-2.5 py-1.5 rounded-lg shadow-xs transition hover:text-rose-700"
+                                title="Desasignar y regresar a stock disponible"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Desasignar</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {(!currentUser.assigned_assets || currentUser.assigned_assets.length === 0) && (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center">
+                          <Box className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                          <p className="text-slate-500 font-bold text-sm">
+                            Este colaborador no tiene equipos asignados actualmente
+                          </p>
+                          <p className="text-slate-400 text-xs mt-1">
+                            Utiliza el botón superior "Asignar Equipo" para escanear con la pistola o buscar en el stock.
+                          </p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
+          )}
 
-            {/* BLOQUE 3: COLUMNA LATERAL DERECHA (ACCIONES, HISTORIAL Y ALERTAS) */}
-            <div className="lg:col-span-4 flex flex-col gap-4 overflow-y-auto pr-1">
-              {/* Acciones de Asignación y Swap */}
-              <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-sm space-y-3 shrink-0">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
-                  <PlusCircle className="w-4 h-4 text-sky-600" />
-                  <span>Acciones de Custodia</span>
-                </h4>
+          {/* VISTA 2: DIAGRAMA DE NODOS (@xyflow/react) */}
+          {activeDetailTab === 'DIAGRAM' && (
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-0">
+              {/* BLOQUE 2: LIENZO CENTRAL CON EL DIAGRAMA DE NODOS (@xyflow/react) */}
+              <div className="lg:col-span-8 bg-white rounded-2xl border border-[#E2E8F0] shadow-sm flex flex-col overflow-hidden relative">
+                <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/70 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <Network className="w-4 h-4 text-sky-600" />
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                      Diagrama de Jerarquía y Custodia
+                    </h4>
+                  </div>
+                  <span className="text-[11px] text-slate-400">
+                    Arrastra los nodos o haz zoom para explorar
+                  </span>
+                </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => currentUser && setAssignTargetUser(currentUser)}
-                    className="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-200 hover:border-sky-300 hover:bg-sky-50/50 transition text-center gap-1.5"
+                <div className="flex-1 w-full h-full min-h-[420px] bg-slate-50/50">
+                  <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    nodeTypes={nodeTypes}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    fitView
+                    fitViewOptions={{ padding: 0.3 }}
                   >
-                    <PlusCircle className="w-4 h-4 text-sky-600" />
-                    <span className="text-xs font-bold text-slate-900 leading-tight">Asignar Equipos</span>
-                    <span className="text-[10px] text-slate-500">Escáner continuo o filtros</span>
-                  </button>
-
-                  <button
-                    onClick={() => setSwapModalOpen(true)}
-                    className="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-200 hover:border-amber-300 hover:bg-amber-50/50 transition text-center gap-1.5"
-                  >
-                    <ArrowLeftRight className="w-4 h-4 text-amber-600" />
-                    <span className="text-xs font-bold text-slate-900 leading-tight">Cambio (Swap)</span>
-                    <span className="text-[10px] text-slate-500">Reemplazo inmediato</span>
-                  </button>
+                    <Background gap={16} size={1} color="#CBD5E1" />
+                    <Controls className="!bg-white !border-slate-200 !shadow-sm !rounded-xl" />
+                  </ReactFlow>
                 </div>
               </div>
 
-              {/* Alertas preventivas del usuario */}
-              {userAlerts.length > 0 && (
-                <div className="bg-white p-5 rounded-2xl border border-amber-200 bg-amber-50/20 shadow-sm space-y-3 shrink-0">
-                  <div className="flex items-center gap-2 text-amber-800 font-bold text-xs uppercase">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span>Alertas Preventivas ({userAlerts.length})</span>
+              {/* BLOQUE 3: COLUMNA LATERAL DERECHA (ACCIONES, HISTORIAL Y ALERTAS) */}
+              <div className="lg:col-span-4 flex flex-col gap-4 overflow-y-auto pr-1">
+                {/* Acciones de Asignación y Swap */}
+                <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-sm space-y-3 shrink-0">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                    <PlusCircle className="w-4 h-4 text-sky-600" />
+                    <span>Acciones de Custodia</span>
+                  </h4>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => currentUser && setAssignTargetUser(currentUser)}
+                      className="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-200 hover:border-sky-300 hover:bg-sky-50/50 transition text-center gap-1.5"
+                    >
+                      <PlusCircle className="w-4 h-4 text-sky-600" />
+                      <span className="text-xs font-bold text-slate-900 leading-tight">Asignar Equipos</span>
+                      <span className="text-[10px] text-slate-500">Escáner continuo o filtros</span>
+                    </button>
+
+                    <button
+                      onClick={() => setSwapModalOpen(true)}
+                      className="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-200 hover:border-amber-300 hover:bg-amber-50/50 transition text-center gap-1.5"
+                    >
+                      <ArrowLeftRight className="w-4 h-4 text-amber-600" />
+                      <span className="text-xs font-bold text-slate-900 leading-tight">Cambio (Swap)</span>
+                      <span className="text-[10px] text-slate-500">Reemplazo inmediato</span>
+                    </button>
                   </div>
-                  <div className="space-y-2">
-                    {userAlerts.map((alt) => (
+                </div>
+
+                {/* Alertas preventivas del usuario */}
+                {userAlerts.length > 0 && (
+                  <div className="bg-white p-5 rounded-2xl border border-amber-200 bg-amber-50/20 shadow-sm space-y-3 shrink-0">
+                    <div className="flex items-center gap-2 text-amber-800 font-bold text-xs uppercase">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Alertas Preventivas ({userAlerts.length})</span>
+                    </div>
+                    <div className="space-y-2">
+                      {userAlerts.map((alt) => (
+                        <div
+                          key={alt.id}
+                          className="p-2.5 rounded-lg bg-white border border-amber-200 text-xs shadow-xs"
+                        >
+                          <span className="font-bold text-slate-900 block">{alt.title}</span>
+                          <p className="text-[11px] text-slate-600 mt-0.5">{alt.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Historial de Cambios y Movimientos */}
+                <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-sm space-y-3 flex-1 flex flex-col min-h-[220px]">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                      <History className="w-4 h-4 text-slate-500" />
+                      <span>Historial de Movimientos</span>
+                    </h4>
+                    <span className="text-[10px] font-mono text-slate-400">Audit Log</span>
+                  </div>
+
+                  <div className="space-y-2.5 overflow-y-auto flex-1">
+                    {userHistory.map((h) => (
                       <div
-                        key={alt.id}
-                        className="p-2.5 rounded-lg bg-white border border-amber-200 text-xs shadow-xs"
+                        key={h.id}
+                        className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 text-xs space-y-1"
                       >
-                        <span className="font-bold text-slate-900 block">{alt.title}</span>
-                        <p className="text-[11px] text-slate-600 mt-0.5">{alt.description}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-bold text-sky-800 text-[11px]">
+                            {h.asset_tag}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {new Date(h.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-700 font-medium">{h.notes}</p>
+                        <div className="flex items-center justify-between text-[10px] text-slate-400">
+                          <span className="px-1.5 py-0.2 rounded bg-slate-200 text-slate-700">
+                            {h.action_type}
+                          </span>
+                          {h.responsiva_status === 'SIGNED' ? (
+                            <span className="text-emerald-700 font-semibold flex items-center gap-0.5">
+                              <CheckCircle className="w-3 h-3" /> Firmada
+                            </span>
+                          ) : h.responsiva_status === 'PENDING' ? (
+                            <span className="text-amber-700 font-semibold">Firma Pendiente</span>
+                          ) : null}
+                        </div>
                       </div>
                     ))}
+
+                    {userHistory.length === 0 && (
+                      <div className="py-8 text-center text-slate-400 text-xs italic">
+                        No hay movimientos registrados para este colaborador.
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
-
-              {/* Historial de Cambios y Movimientos */}
-              <div className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-sm space-y-3 flex-1 flex flex-col min-h-[220px]">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
-                    <History className="w-4 h-4 text-slate-500" />
-                    <span>Historial de Movimientos</span>
-                  </h4>
-                  <span className="text-[10px] font-mono text-slate-400">Audit Log</span>
-                </div>
-
-                <div className="space-y-2.5 overflow-y-auto flex-1">
-                  {userHistory.map((h) => (
-                    <div
-                      key={h.id}
-                      className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 text-xs space-y-1"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono font-bold text-sky-800 text-[11px]">
-                          {h.asset_tag}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono">
-                          {new Date(h.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-700 font-medium">{h.notes}</p>
-                      <div className="flex items-center justify-between text-[10px] text-slate-400">
-                        <span className="px-1.5 py-0.2 rounded bg-slate-200 text-slate-700">
-                          {h.action_type}
-                        </span>
-                        {h.responsiva_status === 'SIGNED' ? (
-                          <span className="text-emerald-700 font-semibold flex items-center gap-0.5">
-                            <CheckCircle className="w-3 h-3" /> Firmada
-                          </span>
-                        ) : h.responsiva_status === 'PENDING' ? (
-                          <span className="text-amber-700 font-semibold">Firma Pendiente</span>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))}
-
-                  {userHistory.length === 0 && (
-                    <div className="py-8 text-center text-slate-400 text-xs italic">
-                      No hay movimientos registrados para este colaborador.
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -935,6 +1320,21 @@ export const UsersDiagramView: React.FC = () => {
           onAuditFinished={() => {
             loadUsers();
             if (selectedUserId) loadUserDetails(selectedUserId);
+          }}
+        />
+      )}
+
+      {/* Modal Edición de Activo Asignado */}
+      {editingAsset && (
+        <AssetFormModal
+          assetToEdit={editingAsset}
+          users={users}
+          availableLaptops={currentUser?.assigned_assets?.filter(a => a.category === 'LAPTOP' || a.category === 'WORKSTATION') || []}
+          onClose={() => setEditingAsset(null)}
+          onSuccess={() => {
+            setEditingAsset(null);
+            if (selectedUserId) loadUserDetails(selectedUserId);
+            loadUsers();
           }}
         />
       )}
