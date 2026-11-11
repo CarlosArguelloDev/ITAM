@@ -1,12 +1,20 @@
 -- Esquema DDL para ITAM en SQLite (ARM64 / bajo consumo)
 
+CREATE TABLE IF NOT EXISTS departments (
+    id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_departments_name ON departments(name);
+
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     employee_code TEXT UNIQUE NOT NULL,
     full_name TEXT NOT NULL,
     email TEXT NOT NULL,
     department TEXT NOT NULL,
-    location TEXT NOT NULL,
+    location TEXT NOT NULL CHECK(location IN ('OPM', 'OMEX')),
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -17,14 +25,15 @@ CREATE INDEX IF NOT EXISTS idx_users_department ON users(department);
 CREATE TABLE IF NOT EXISTS assets (
     id TEXT PRIMARY KEY,
     asset_tag TEXT UNIQUE NOT NULL,
-    serial_number TEXT UNIQUE NOT NULL,
-    category TEXT NOT NULL CHECK(category IN ('LAPTOP', 'MONITOR', 'DOCKING', 'PERIPHERAL', 'OTHER')),
+    serial_number TEXT NOT NULL,
+    category TEXT NOT NULL,
     brand TEXT NOT NULL,
     model TEXT NOT NULL,
     status TEXT NOT NULL CHECK(status IN ('AVAILABLE', 'ASSIGNED', 'MAINTENANCE', 'RETIRED', 'LOST')) DEFAULT 'AVAILABLE',
     assigned_to_user_id TEXT NULLABLE REFERENCES users(id) ON DELETE SET NULL,
     parent_asset_id TEXT NULLABLE REFERENCES assets(id) ON DELETE SET NULL,
-    location TEXT NOT NULL,
+    location TEXT NOT NULL CHECK(location IN ('OPM', 'OMEX')),
+    department TEXT NOT NULL DEFAULT '',
     specs TEXT NOT NULL DEFAULT '{}',
     warranty_expiry DATE NULLABLE,
     last_audited_at DATETIME NULLABLE,
@@ -37,6 +46,8 @@ CREATE INDEX IF NOT EXISTS idx_assets_assigned_user ON assets(assigned_to_user_i
 CREATE INDEX IF NOT EXISTS idx_assets_parent ON assets(parent_asset_id);
 CREATE INDEX IF NOT EXISTS idx_assets_status ON assets(status);
 CREATE INDEX IF NOT EXISTS idx_assets_category ON assets(category);
+CREATE INDEX IF NOT EXISTS idx_assets_location ON assets(location);
+CREATE INDEX IF NOT EXISTS idx_assets_department ON assets(department);
 
 CREATE TABLE IF NOT EXISTS asset_history (
     id TEXT PRIMARY KEY,

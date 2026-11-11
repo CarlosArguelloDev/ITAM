@@ -74,7 +74,7 @@ func (h *AppHandler) PrintAssetLabelBrother(w http.ResponseWriter, r *http.Reque
 
 	// El código de barras lleva el número de serie, y si no tiene serial, lleva el tag
 	barcodeValue := strings.TrimSpace(asset.SerialNumber)
-	if barcodeValue == "" {
+	if barcodeValue == "" || strings.EqualFold(barcodeValue, "NO LEGIBLE") || strings.EqualFold(barcodeValue, "NA") || strings.EqualFold(barcodeValue, "N/A") {
 		barcodeValue = strings.TrimSpace(asset.AssetTag)
 	}
 

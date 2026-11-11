@@ -83,6 +83,7 @@ func main() {
 		// Dashboard KPIs y Centro de Alertas
 		api.Get("/stats", appHandler.GetStats)
 		api.Get("/alerts", appHandler.GetAlerts)
+		api.Get("/departments", appHandler.ListDepartments)
 
 		// Gestión de Usuarios
 		api.Route("/users", func(u chi.Router) {

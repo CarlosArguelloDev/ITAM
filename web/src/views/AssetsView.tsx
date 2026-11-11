@@ -164,7 +164,15 @@ export const AssetsView: React.FC = () => {
             <option value="LAPTOP">Laptops</option>
             <option value="MONITOR">Monitores</option>
             <option value="DOCKING">Dockings</option>
-            <option value="PERIPHERAL">Periféricos</option>
+            <option value="WORKSTATION">Workstations</option>
+            <option value="AUDIFONOS">Audífonos</option>
+            <option value="TELEFONO">Teléfonos</option>
+            <option value="IMPRESORA">Impresoras</option>
+            <option value="SWITCH">Switches</option>
+            <option value="ACCESS POINT">Access Points</option>
+            <option value="SERVER">Servidores</option>
+            <option value="TELEVISION">Televisiones</option>
+            <option value="NO-BREAK">No-Breaks</option>
             <option value="OTHER">Otros</option>
           </select>
 
@@ -179,6 +187,16 @@ export const AssetsView: React.FC = () => {
             <option value="MAINTENANCE">Mantenimiento</option>
             <option value="RETIRED">Retirado</option>
             <option value="LOST">Extraviado</option>
+          </select>
+
+          <select
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+            className="bg-slate-50 border border-slate-200 text-xs font-bold text-sky-800 rounded-xl px-3 py-2"
+          >
+            <option value="">Todas las Sedes</option>
+            <option value="OPM">Planta OPM</option>
+            <option value="OMEX">Oficinas OMEX</option>
           </select>
 
           <button
@@ -249,7 +267,16 @@ export const AssetsView: React.FC = () => {
                   </td>
 
                   {/* Ubicación */}
-                  <td className="py-3.5 px-4 text-slate-600">{a.location}</td>
+                  <td className="py-3.5 px-4">
+                    <span className="font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded text-[11px] border border-sky-200">
+                      {a.location}
+                    </span>
+                    {a.department && (
+                      <span className="block text-[10px] text-slate-500 mt-0.5 font-medium truncate max-w-[120px]" title={a.department}>
+                        {a.department}
+                      </span>
+                    )}
+                  </td>
 
                   {/* Última Auditoría */}
                   <td className="py-3.5 px-4 text-slate-500 text-[11px]">

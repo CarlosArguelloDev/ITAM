@@ -9,6 +9,7 @@ import {
   DashboardStats,
   AlertItem,
   PendingResponsivaItem,
+  Department,
 } from './types';
 
 const API_BASE = '/api';
@@ -38,6 +39,7 @@ export const api = {
   // Stats & Alertas
   getStats: () => fetchJSON<DashboardStats>('/stats'),
   getAlerts: () => fetchJSON<AlertItem[]>('/alerts'),
+  getDepartments: () => fetchJSON<Department[]>('/departments'),
 
   // Usuarios
   getUsers: (params?: { search?: string; department?: string; active?: boolean }) => {

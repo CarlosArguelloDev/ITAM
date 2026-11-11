@@ -41,9 +41,9 @@ export const AuditsView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedReportCampaign, setSelectedReportCampaign] = useState<AuditCampaign | null>(null);
 
-  // Estados para auditar por Sede / Site
-  const [locations, setLocations] = useState<string[]>(['Site 1 TI', 'San Juan del Río', 'CDMX Central', 'Bodega de Sistemas']);
-  const [selectedLocation, setSelectedLocation] = useState<string>('Site 1 TI');
+  // Estados para auditar por Sede / Site (exclusivamente OPM y OMEX)
+  const locations = ['OPM', 'OMEX'];
+  const [selectedLocation, setSelectedLocation] = useState<string>('OPM');
   const [expectedSiteAssets, setExpectedSiteAssets] = useState<Asset[]>([]);
   const [siteCampaignId, setSiteCampaignId] = useState<string | null>(null);
   const [scannedRecords, setScannedRecords] = useState<ScannedItemRecord[]>([]);
@@ -59,7 +59,6 @@ export const AuditsView: React.FC = () => {
 
   useEffect(() => {
     loadCampaigns();
-    loadLocations();
   }, []);
 
   useEffect(() => {
@@ -105,19 +104,6 @@ export const AuditsView: React.FC = () => {
       console.error('Error cargando historial de auditorías:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadLocations = async () => {
-    try {
-      const stats = await api.getStats().catch(() => null);
-      if (stats?.location_counts) {
-        const locs = Object.keys(stats.location_counts);
-        if (!locs.includes('Site 1 TI')) locs.unshift('Site 1 TI');
-        setLocations(locs);
-      }
-    } catch (err) {
-      console.error('Error cargando ubicaciones:', err);
     }
   };
 
