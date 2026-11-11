@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
-  QrCode,
+  Barcode,
   Camera,
   CheckCircle2,
   AlertTriangle,
@@ -82,7 +82,7 @@ export const QuickUserAuditModal: React.FC<QuickUserAuditModalProps> = ({
     if (cameraActive) {
       const scanner = new Html5QrcodeScanner(
         'quick-audit-camera-container',
-        { fps: 10, qrbox: { width: 220, height: 220 }, aspectRatio: 1.0 },
+        { fps: 10, qrbox: { width: 280, height: 120 }, aspectRatio: 1.77 },
         false
       );
 
@@ -270,7 +270,7 @@ export const QuickUserAuditModal: React.FC<QuickUserAuditModalProps> = ({
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
-              <QrCode className="w-5 h-5" />
+              <Barcode className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -348,13 +348,13 @@ export const QuickUserAuditModal: React.FC<QuickUserAuditModalProps> = ({
           {cameraActive && (
             <div className="p-3 bg-white rounded-xl border border-slate-200 flex flex-col items-center mb-3">
               <div id="quick-audit-camera-container" className="w-full max-w-xs rounded-lg overflow-hidden bg-black" />
-              <p className="text-[11px] text-slate-500 mt-2">Apunta la cámara al código QR del activo.</p>
+              <p className="text-[11px] text-slate-500 mt-2">Apunta la cámara al código de barras del activo.</p>
             </div>
           )}
 
           <form onSubmit={handleManualSubmit} className="flex gap-2">
             <div className="relative flex-1">
-              <QrCode className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <Barcode className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 ref={inputRef}
                 type="text"

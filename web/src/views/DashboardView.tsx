@@ -10,6 +10,7 @@ import {
   TrendingUp,
   RefreshCw,
   Clock,
+  Barcode,
 } from 'lucide-react';
 import { DashboardStats, AlertItem } from '../types';
 import { api } from '../api';
@@ -75,7 +76,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
             onClick={onOpenScanner}
             className="flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl shadow transition"
           >
-            <span>Iniciar Auditoría QR</span>
+            <Barcode className="w-4 h-4" />
+            <span>Escanear Código de Barras</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
