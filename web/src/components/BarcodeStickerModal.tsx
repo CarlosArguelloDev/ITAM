@@ -14,6 +14,11 @@ export const BarcodeStickerModal: React.FC<BarcodeStickerModalProps> = ({ asset,
   const [brotherSuccess, setBrotherSuccess] = useState<string | null>(null);
   const [brotherError, setBrotherError] = useState<string | null>(null);
 
+  // Valor del código de barras: número de serie si existe, o asset tag como fallback
+  const barcodeValue = (asset.serial_number && asset.serial_number.trim() !== '')
+    ? asset.serial_number.trim()
+    : asset.asset_tag.trim();
+
   const handleBrowserPrint = () => {
     window.print();
   };
@@ -85,35 +90,39 @@ export const BarcodeStickerModal: React.FC<BarcodeStickerModalProps> = ({ asset,
             id="printable-content"
             className="w-80 bg-white border-2 border-dashed border-slate-400 p-4 rounded-xl flex flex-col items-center shadow-sm text-center relative"
           >
-            <div className="w-full flex items-center justify-between border-b border-slate-200 pb-1.5 mb-2">
-              <span className="text-[10px] font-bold tracking-wider uppercase text-sky-700">
-                PROPIEDAD DE TI
+            {/* 1. Arriba: Marca y Modelo (txtBrandModel) */}
+            <div className="w-full text-center pb-1">
+              <span className="text-[11px] font-bold text-slate-800 tracking-wider uppercase">
+                {asset.brand} {asset.model}
               </span>
-              <span className="text-[9px] font-mono text-slate-400">CONTROL TI</span>
             </div>
 
-            {/* Código de Barras Code 128 */}
-            <div className="p-1.5 bg-white rounded-lg border border-slate-200 shadow-inner mb-2 w-full flex justify-center overflow-hidden">
+            {/* 2. Centro: Asset Tag destacado (txtAssetTag) */}
+            <div className="w-full bg-slate-900 text-white py-1 px-2 rounded-md my-1 shadow-xs">
+              <h4 className="text-base font-mono font-bold tracking-wider">
+                {asset.asset_tag}
+              </h4>
+            </div>
+
+            {/* 3. Abajo: Código de Barras (Serial o Tag) */}
+            <div className="p-1 bg-white rounded-lg border border-slate-200 shadow-inner my-1.5 w-full flex flex-col items-center justify-center overflow-hidden">
               <Barcode
-                value={asset.asset_tag}
-                width={1.9}
-                height={52}
-                fontSize={12}
+                value={barcodeValue}
+                width={1.8}
+                height={46}
+                fontSize={11}
                 margin={4}
                 className="max-w-full"
               />
+              <span className="text-[9px] font-mono text-slate-500 -mt-1 pb-0.5">
+                {asset.serial_number && asset.serial_number.trim() !== ''
+                  ? `S/N: ${asset.serial_number}`
+                  : `TAG: ${asset.asset_tag}`}
+              </span>
             </div>
 
-            {/* Serial & Model */}
-            <p className="text-xs font-semibold text-slate-700 mt-1">
-              {asset.brand} {asset.model}
-            </p>
-            <p className="text-[11px] font-mono text-slate-500">
-              S/N: {asset.serial_number}
-            </p>
-
-            <div className="w-full border-t border-slate-100 pt-1.5 mt-2 flex items-center justify-between text-[9px] text-slate-400">
-              <span>{asset.category}</span>
+            <div className="w-full border-t border-slate-200 pt-1 mt-1 flex items-center justify-between text-[9px] text-slate-400">
+              <span className="font-semibold uppercase text-sky-700">PROPIEDAD DE TI</span>
               <span>{asset.location}</span>
             </div>
           </div>
