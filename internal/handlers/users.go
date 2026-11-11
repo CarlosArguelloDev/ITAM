@@ -485,3 +485,22 @@ func (h *AppHandler) GetUserByID(w http.ResponseWriter, id string, statusCode in
 	u.IsActive = isActiveInt == 1
 	JSONResponse(w, statusCode, u)
 }
+
+// ListDepartments devuelve la lista de departamentos de la empresa
+func (h *AppHandler) ListDepartments(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.DB.Query(`SELECT id, name, created_at FROM departments ORDER BY name ASC`)
+	if err != nil {
+		ErrorResponse(w, http.StatusInternalServerError, "Error al consultar departamentos: "+err.Error())
+		return
+	}
+	defer rows.Close()
+
+	depts := []models.Department{}
+	for rows.Next() {
+		var d models.Department
+		if err := rows.Scan(&d.ID, &d.Name, &d.CreatedAt); err == nil {
+			depts = append(depts, d)
+		}
+	}
+	JSONResponse(w, http.StatusOK, depts)
+}

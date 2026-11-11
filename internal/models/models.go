@@ -50,6 +50,13 @@ const (
 	DiscrepancyMissing          = "MISSING"
 )
 
+// Department representa un departamento corporativo
+type Department struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // User representa al usuario primario/empleado
 type User struct {
 	ID               string     `json:"id"`
@@ -82,6 +89,7 @@ type Asset struct {
 	ParentAssetID    *string         `json:"parent_asset_id,omitempty"`
 	ParentAssetTag   *string         `json:"parent_asset_tag,omitempty"`
 	Location         string          `json:"location"`
+	Department       string          `json:"department"`
 	Specs            json.RawMessage `json:"specs"`
 	WarrantyExpiry   *string         `json:"warranty_expiry,omitempty"`
 	LastAuditedAt    *time.Time      `json:"last_audited_at,omitempty"`
@@ -217,6 +225,7 @@ type CreateAssetRequest struct {
 	AssignedToUserID *string         `json:"assigned_to_user_id"`
 	ParentAssetID    *string         `json:"parent_asset_id"`
 	Location         string          `json:"location"`
+	Department       string          `json:"department"`
 	Specs            json.RawMessage `json:"specs"`
 	WarrantyExpiry   *string         `json:"warranty_expiry"`
 }
@@ -231,6 +240,7 @@ type UpdateAssetRequest struct {
 	AssignedToUserID *string         `json:"assigned_to_user_id"`
 	ParentAssetID    *string         `json:"parent_asset_id"`
 	Location         string          `json:"location"`
+	Department       string          `json:"department"`
 	Specs            json.RawMessage `json:"specs"`
 	WarrantyExpiry   *string         `json:"warranty_expiry"`
 }

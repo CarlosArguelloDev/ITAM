@@ -177,13 +177,14 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
               <label className="font-medium text-slate-600 block mb-1">
                 Ubicación Física Actual:
               </label>
-              <input
-                type="text"
+              <select
                 value={foundLocation}
                 onChange={(e) => setFoundLocation(e.target.value)}
-                placeholder="Ej. CDMX Central"
-                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              />
+                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-sky-800 font-bold focus:outline-none focus:ring-1 focus:ring-sky-500"
+              >
+                <option value="OPM">OPM (Planta OPM)</option>
+                <option value="OMEX">OMEX (Oficinas OMEX)</option>
+              </select>
             </div>
           </div>
         </div>

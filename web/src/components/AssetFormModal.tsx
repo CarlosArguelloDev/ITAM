@@ -1,7 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, AlertCircle } from 'lucide-react';
-import { Asset, AssetCategory, AssetStatus, User } from '../types';
+import { Asset, AssetCategory, AssetStatus, User, LocationType, Department } from '../types';
 import { api } from '../api';
+
+const CATEGORY_OPTIONS: { value: AssetCategory; label: string }[] = [
+  { value: 'LAPTOP', label: 'Laptop / Portátil' },
+  { value: 'MONITOR', label: 'Monitor' },
+  { value: 'DOCKING', label: 'Docking Station' },
+  { value: 'WORKSTATION', label: 'Workstation / Desktop' },
+  { value: 'AUDIFONOS', label: 'Audífonos / Headset' },
+  { value: 'TELEFONO', label: 'Teléfono Móvil' },
+  { value: 'TELEFONO FIJO', label: 'Teléfono Fijo' },
+  { value: 'SIM-CARD', label: 'SIM Card' },
+  { value: 'IMPRESORA', label: 'Impresora' },
+  { value: 'SCANNER', label: 'Escáner' },
+  { value: 'IPAD', label: 'iPad / Tablet' },
+  { value: 'FIREWALL', label: 'Firewall' },
+  { value: 'SWITCH', label: 'Switch de Red' },
+  { value: 'ACCESS POINT', label: 'Access Point' },
+  { value: 'SERVER', label: 'Servidor' },
+  { value: 'NVR', label: 'NVR' },
+  { value: 'DVR', label: 'DVR' },
+  { value: 'ROUTER', label: 'Router' },
+  { value: 'NO-BREAK', label: 'No-Break / UPS' },
+  { value: 'PDU', label: 'PDU' },
+  { value: 'PROYECTOR', label: 'Proyector' },
+  { value: 'TELEVISION', label: 'Televisión' },
+  { value: 'TRITURADORA', label: 'Trituradora' },
+  { value: 'CONTROL TV', label: 'Control Remoto TV' },
+  { value: 'CONVERTIDOR DE MEDIOS', label: 'Convertidor de Medios' },
+  { value: 'GOPRO', label: 'Cámara / GoPro' },
+  { value: 'RACK MOUNT TRAY', label: 'Rack Mount Tray' },
+  { value: 'ADAPTADOR DE RED', label: 'Adaptador de Red' },
+  { value: 'BOCINA', label: 'Bocina' },
+  { value: 'BATERIA', label: 'Batería' },
+  { value: 'CARGADOR BATERIA', label: 'Cargador de Batería' },
+  { value: 'QUEMADOR DE CD', label: 'Quemador de CD' },
+  { value: 'PERIPHERAL', label: 'Periférico' },
+  { value: 'OTHER', label: 'Otro' },
+];
 
 interface AssetFormModalProps {
   assetToEdit?: Asset | null;
@@ -24,7 +61,9 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   const [brand, setBrand] = useState('Dell');
   const [model, setModel] = useState('');
   const [status, setStatus] = useState<AssetStatus>('AVAILABLE');
-  const [location, setLocation] = useState('CDMX Central');
+  const [location, setLocation] = useState<LocationType>('OPM');
+  const [department, setDepartment] = useState('');
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [assignedToUserId, setAssignedToUserId] = useState('');
   const [parentAssetId, setParentAssetId] = useState('');
   const [warrantyExpiry, setWarrantyExpiry] = useState('');
@@ -55,6 +94,10 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    api.getDepartments().then(setDepartments).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (assetToEdit) {
       setCategory(assetToEdit.category);
       setAssetTag(assetToEdit.asset_tag);
@@ -62,7 +105,8 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
       setBrand(assetToEdit.brand);
       setModel(assetToEdit.model);
       setStatus(assetToEdit.status);
-      setLocation(assetToEdit.location);
+      setLocation((assetToEdit.location as LocationType) || 'OPM');
+      setDepartment(assetToEdit.department || '');
       setAssignedToUserId(assetToEdit.assigned_to_user_id || '');
       setParentAssetId(assetToEdit.parent_asset_id || '');
       setWarrantyExpiry(assetToEdit.warranty_expiry || '');
@@ -140,6 +184,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
         model,
         status,
         location,
+        department: department.trim(),
         assigned_to_user_id: assignedToUserId ? assignedToUserId : undefined,
         parent_asset_id: parentAssetId ? parentAssetId : undefined,
         specs,
@@ -200,11 +245,9 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                 onChange={(e) => setCategory(e.target.value as AssetCategory)}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 font-medium text-slate-800"
               >
-                <option value="LAPTOP">Laptop / Portátil</option>
-                <option value="MONITOR">Monitor / Pantalla</option>
-                <option value="DOCKING">Docking Station</option>
-                <option value="PERIPHERAL">Periférico (Teclado, Mouse, etc)</option>
-                <option value="OTHER">Otro</option>
+                {CATEGORY_OPTIONS.map((cat) => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                ))}
               </select>
             </div>
 
@@ -255,31 +298,55 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
             </div>
           </div>
 
-          {/* Estado, Ubicación y Garantía */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Estado, Ubicación, Departamento y Garantía */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">Estado de Inventario:</label>
+              <label className="font-semibold text-slate-700 block mb-1">Estado:</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as AssetStatus)}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 font-medium text-slate-800"
               >
-                <option value="AVAILABLE">AVAILABLE (En Stock)</option>
+                <option value="AVAILABLE">AVAILABLE (Stock)</option>
                 <option value="ASSIGNED">ASSIGNED (Asignado)</option>
-                <option value="MAINTENANCE">MAINTENANCE (En Taller)</option>
-                <option value="RETIRED">RETIRED (Baja Definitiva)</option>
-                <option value="LOST">LOST (Extraviado/Robo)</option>
+                <option value="MAINTENANCE">MAINTENANCE (Taller)</option>
+                <option value="RETIRED">RETIRED (Baja)</option>
+                <option value="LOST">LOST (Extraviado)</option>
               </select>
             </div>
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">Ubicación / Sede:</label>
-              <input
-                type="text"
+              <label className="font-semibold text-slate-700 block mb-1">Ubicación / Sede *:</label>
+              <select
                 value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="Ej. CDMX Central"
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800"
-              />
+                onChange={(e) => setLocation(e.target.value as LocationType)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 font-bold text-sky-800"
+              >
+                <option value="OPM">OPM (Planta OPM)</option>
+                <option value="OMEX">OMEX (Oficinas OMEX)</option>
+              </select>
+            </div>
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">Departamento:</label>
+              {departments.length > 0 ? (
+                <select
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800 font-medium"
+                >
+                  <option value="">(Sin asignar)</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  placeholder="Ej. LOGISTICS"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800"
+                />
+              )}
             </div>
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Vencimiento Garantía:</label>

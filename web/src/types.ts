@@ -1,4 +1,47 @@
-export type AssetCategory = 'LAPTOP' | 'MONITOR' | 'DOCKING' | 'PERIPHERAL' | 'OTHER';
+export type LocationType = 'OPM' | 'OMEX';
+
+export type AssetCategory =
+  | 'LAPTOP'
+  | 'MONITOR'
+  | 'DOCKING'
+  | 'WORKSTATION'
+  | 'AUDIFONOS'
+  | 'TELEFONO'
+  | 'TELEFONO FIJO'
+  | 'SIM-CARD'
+  | 'IMPRESORA'
+  | 'SCANNER'
+  | 'IPAD'
+  | 'FIREWALL'
+  | 'SWITCH'
+  | 'ACCESS POINT'
+  | 'SERVER'
+  | 'NVR'
+  | 'DVR'
+  | 'ROUTER'
+  | 'NO-BREAK'
+  | 'PDU'
+  | 'PROYECTOR'
+  | 'TELEVISION'
+  | 'TRITURADORA'
+  | 'CONTROL TV'
+  | 'CONVERTIDOR DE MEDIOS'
+  | 'GOPRO'
+  | 'RACK MOUNT TRAY'
+  | 'ADAPTADOR DE RED'
+  | 'BOCINA'
+  | 'BATERIA'
+  | 'CARGADOR BATERIA'
+  | 'QUEMADOR DE CD'
+  | 'PERIPHERAL'
+  | 'OTHER';
+
+export interface Department {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
 export type AssetStatus = 'AVAILABLE' | 'ASSIGNED' | 'MAINTENANCE' | 'RETIRED' | 'LOST';
 export type ResponsivaStatus = 'PENDING' | 'SIGNED' | 'NOT_REQUIRED';
 export type DiscrepancyType = 'MATCH' | 'WRONG_USER' | 'WRONG_LOCATION' | 'UNEXPECTED_STATUS' | 'MISSING';
@@ -10,7 +53,7 @@ export interface User {
   full_name: string;
   email: string;
   department: string;
-  location: string;
+  location: LocationType;
   is_active: boolean;
   created_at: string;
   assigned_assets?: Asset[];
@@ -33,7 +76,8 @@ export interface Asset {
   assigned_to_name?: string;
   parent_asset_id?: string;
   parent_asset_tag?: string;
-  location: string;
+  location: LocationType;
+  department?: string;
   specs: Record<string, any>;
   warranty_expiry?: string;
   last_audited_at?: string;

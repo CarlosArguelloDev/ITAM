@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, User as UserIcon, AlertCircle, Save } from 'lucide-react';
-import { User } from '../types';
+import { User, Department, LocationType } from '../types';
 import { api } from '../api';
 
 interface UserFormModalProps {
@@ -12,10 +12,22 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onUserSav
   const [employeeCode, setEmployeeCode] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [department, setDepartment] = useState('Engineering');
-  const [location, setLocation] = useState('San Juan del Río');
+  const [department, setDepartment] = useState('LOGISTICS');
+  const [location, setLocation] = useState<LocationType>('OPM');
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getDepartments()
+      .then(res => {
+        setDepartments(res);
+        if (res.length > 0 && !res.some(d => d.name === department)) {
+          setDepartment(res[0].name);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +45,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onUserSav
         full_name: fullName.trim(),
         email: email.trim() || `${employeeCode.trim().toLowerCase()}@optibelt.com`,
         department: department.trim(),
-        location: location.trim(),
+        location,
         is_active: true,
       });
 
@@ -87,7 +99,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onUserSav
                 required
                 value={employeeCode}
                 onChange={(e) => setEmployeeCode(e.target.value)}
-                placeholder="ej. EMP-1050"
+                placeholder="ej. EMP-OPM-1050"
                 className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-mono font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
             </div>
@@ -123,28 +135,41 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onUserSav
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="font-semibold text-slate-700 block mb-1">
-                Departamento / Área
+                Departamento / Área *
               </label>
-              <input
-                type="text"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                placeholder="ej. Producción, TI, Finanzas"
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
-              />
+              {departments.length > 0 ? (
+                <select
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500"
+                >
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  placeholder="ej. LOGISTICS, PRODUCTION"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              )}
             </div>
 
             <div>
               <label className="font-semibold text-slate-700 block mb-1">
-                Sede / Locación
+                Sede / Locación *
               </label>
-              <input
-                type="text"
+              <select
                 value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="ej. San Juan del Río, Site 1 TI"
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
-              />
+                onChange={(e) => setLocation(e.target.value as LocationType)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold text-sky-800 bg-sky-50/50 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              >
+                <option value="OPM">OPM (Planta OPM)</option>
+                <option value="OMEX">OMEX (Oficinas OMEX)</option>
+              </select>
             </div>
           </div>
 
