@@ -2,8 +2,13 @@ param(
     [string]$templatePath = "templates/etiqueta.lbx",
     [string]$printerName = "Brother PT-D410",
     [string]$brandModel = "DELL LATITUDE 5440",
-    [string]$assetTag = "IT-LAP-0010"
+    [string]$assetTag = "IT-LAP-0010",
+    [string]$barcodeValue = ""
 )
+
+if (-not $barcodeValue -or $barcodeValue.Trim() -eq "") {
+    $barcodeValue = $assetTag
+}
 
 try {
     $doc = New-Object -ComObject "bpac.Document"
@@ -29,10 +34,10 @@ try {
         [void]$doc.SetPrinter($printerName, $false)
     }
 
-    # 1. Objeto Código de Barras
+    # 1. Objeto Código de Barras (Número de serie, o Tag si no hay serial)
     $barcodeObj = $doc.GetObject("Barcode")
     if ($barcodeObj) {
-        $barcodeObj.Text = $assetTag
+        $barcodeObj.Text = $barcodeValue
     }
 
     # 2. Objeto Marca y Modelo

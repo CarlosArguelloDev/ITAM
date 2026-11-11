@@ -72,7 +72,13 @@ func (h *AppHandler) PrintAssetLabelBrother(w http.ResponseWriter, r *http.Reque
 		brandModel = string(asset.Category)
 	}
 
-	log.Printf("[PRINT-JOB] Imprimiendo con b-PAC: %s (%s) en %s", asset.AssetTag, brandModel, printerName)
+	// El código de barras lleva el número de serie, y si no tiene serial, lleva el tag
+	barcodeValue := strings.TrimSpace(asset.SerialNumber)
+	if barcodeValue == "" {
+		barcodeValue = strings.TrimSpace(asset.AssetTag)
+	}
+
+	log.Printf("[PRINT-JOB] Imprimiendo con b-PAC: Tag=%s, Modelo=%s, Barcode=%s en %s", asset.AssetTag, brandModel, barcodeValue, printerName)
 
 	// 5. Invocar PowerShell con b-PAC
 	cmd := exec.Command("powershell", "-ExecutionPolicy", "Bypass", "-File", scriptPath,
@@ -80,6 +86,7 @@ func (h *AppHandler) PrintAssetLabelBrother(w http.ResponseWriter, r *http.Reque
 		"-printerName", printerName,
 		"-brandModel", brandModel,
 		"-assetTag", asset.AssetTag,
+		"-barcodeValue", barcodeValue,
 	)
 
 	out, err := cmd.CombinedOutput()
@@ -94,11 +101,13 @@ func (h *AppHandler) PrintAssetLabelBrother(w http.ResponseWriter, r *http.Reque
 	log.Printf("[PRINT-SUCCESS] %s", outputStr)
 
 	JSONResponse(w, http.StatusOK, map[string]interface{}{
-		"status":      "success",
-		"message":     fmt.Sprintf("Etiqueta de %s enviada exitosamente a %s", asset.AssetTag, printerName),
-		"asset_tag":   asset.AssetTag,
-		"brand_model": brandModel,
-		"printer":     printerName,
+		"status":        "success",
+		"message":       fmt.Sprintf("Etiqueta de %s enviada exitosamente a %s", asset.AssetTag, printerName),
+		"asset_tag":     asset.AssetTag,
+		"serial_number": asset.SerialNumber,
+		"barcode_value": barcodeValue,
+		"brand_model":   brandModel,
+		"printer":       printerName,
 	})
 }
 
