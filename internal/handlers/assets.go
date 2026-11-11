@@ -102,13 +102,13 @@ func (h *AppHandler) GetAsset(w http.ResponseWriter, r *http.Request) {
 	h.getAssetByIDOrTag(w, "a.id = ?", id)
 }
 
-// GetAssetByTag busca activo por su código/etiqueta QR
+// GetAssetByTag busca activo por su código/etiqueta QR o número de serie
 func (h *AppHandler) GetAssetByTag(w http.ResponseWriter, r *http.Request) {
-	tag := chi.URLParam(r, "tag")
-	h.getAssetByIDOrTag(w, "a.asset_tag = ?", tag)
+	tag := strings.TrimSpace(chi.URLParam(r, "tag"))
+	h.getAssetByIDOrTag(w, "(a.asset_tag = ? OR a.serial_number = ?)", tag, tag)
 }
 
-func (h *AppHandler) getAssetByIDOrTag(w http.ResponseWriter, whereClause string, param string) {
+func (h *AppHandler) getAssetByIDOrTag(w http.ResponseWriter, whereClause string, params ...interface{}) {
 	query := fmt.Sprintf(`
 		SELECT a.id, a.asset_tag, a.serial_number, a.category, a.brand, a.model, a.status,
 		       a.assigned_to_user_id, u.full_name AS assigned_to_name,
@@ -123,7 +123,7 @@ func (h *AppHandler) getAssetByIDOrTag(w http.ResponseWriter, whereClause string
 	var a models.Asset
 	var specsStr string
 	var lastAuditedStr *string
-	err := h.DB.QueryRow(query, param).Scan(
+	err := h.DB.QueryRow(query, params...).Scan(
 		&a.ID, &a.AssetTag, &a.SerialNumber, &a.Category, &a.Brand, &a.Model, &a.Status,
 		&a.AssignedToUserID, &a.AssignedToName,
 		&a.ParentAssetID, &a.ParentAssetTag,
@@ -371,16 +371,33 @@ func (h *AppHandler) AssignAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var prevUserID *string
-	var currentStatus string
-	err := h.DB.QueryRow("SELECT assigned_to_user_id, status FROM assets WHERE id = ?", req.AssetID).Scan(&prevUserID, &currentStatus)
+	var currentStatus, currentLoc, category string
+	err := h.DB.QueryRow("SELECT assigned_to_user_id, status, location, category FROM assets WHERE id = ?", req.AssetID).Scan(&prevUserID, &currentStatus, &currentLoc, &category)
 	if err == sql.ErrNoRows {
 		ErrorResponse(w, http.StatusNotFound, "Activo no encontrado")
 		return
 	}
 
 	// Obtener ubicación del usuario si no se especifica
-	if req.Location == "" {
+	if req.Location == "" || (req.Location != "OPM" && req.Location != "OMEX") {
 		_ = h.DB.QueryRow("SELECT location FROM users WHERE id = ?", req.UserID).Scan(&req.Location)
+		if req.Location != "OPM" && req.Location != "OMEX" {
+			req.Location = currentLoc
+			if req.Location != "OPM" && req.Location != "OMEX" {
+				req.Location = "OPM"
+			}
+		}
+	}
+
+	isLaptop := category == "LAPTOP"
+
+	// Auto-vincular satélite a laptop del usuario si no se especificó parent
+	if req.ParentAssetID == nil && !isLaptop {
+		var laptopID string
+		err := h.DB.QueryRow("SELECT id FROM assets WHERE assigned_to_user_id = ? AND category = 'LAPTOP' AND status = 'ASSIGNED' LIMIT 1", req.UserID).Scan(&laptopID)
+		if err == nil && laptopID != "" {
+			req.ParentAssetID = &laptopID
+		}
 	}
 
 	tx, err := h.DB.Begin()
@@ -399,6 +416,15 @@ func (h *AppHandler) AssignAsset(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error al asignar activo: "+err.Error())
 		return
+	}
+
+	// Si el activo asignado es una LAPTOP, vincular automáticamente los satélites que el usuario ya tenga sin padre
+	if isLaptop {
+		_, _ = tx.Exec(`
+			UPDATE assets
+			SET parent_asset_id = ?
+			WHERE assigned_to_user_id = ? AND id != ? AND parent_asset_id IS NULL AND category != 'LAPTOP'
+		`, req.AssetID, req.UserID, req.AssetID)
 	}
 
 	// Historial
@@ -435,15 +461,20 @@ func (h *AppHandler) UnassignAsset(w http.ResponseWriter, r *http.Request) {
 	if req.NextStatus == "" {
 		req.NextStatus = models.StatusAvailable
 	}
-	if req.Location == "" {
-		req.Location = "Bodega Central IT"
-	}
 
 	var prevUserID *string
-	err := h.DB.QueryRow("SELECT assigned_to_user_id FROM assets WHERE id = ?", req.AssetID).Scan(&prevUserID)
+	var currentLoc string
+	err := h.DB.QueryRow("SELECT assigned_to_user_id, location FROM assets WHERE id = ?", req.AssetID).Scan(&prevUserID, &currentLoc)
 	if err == sql.ErrNoRows {
 		ErrorResponse(w, http.StatusNotFound, "Activo no encontrado")
 		return
+	}
+
+	if req.Location == "" || (req.Location != "OPM" && req.Location != "OMEX") {
+		req.Location = currentLoc
+		if req.Location != "OPM" && req.Location != "OMEX" {
+			req.Location = "OPM"
+		}
 	}
 
 	tx, err := h.DB.Begin()
@@ -463,6 +494,9 @@ func (h *AppHandler) UnassignAsset(w http.ResponseWriter, r *http.Request) {
 		ErrorResponse(w, http.StatusInternalServerError, "Error al desasignar: "+err.Error())
 		return
 	}
+
+	// Desenlazar hijos si este activo era padre
+	_, _ = tx.Exec(`UPDATE assets SET parent_asset_id = NULL WHERE parent_asset_id = ?`, req.AssetID)
 
 	// Historial
 	notes := req.Notes

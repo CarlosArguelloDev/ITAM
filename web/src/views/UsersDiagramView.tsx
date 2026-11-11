@@ -43,6 +43,7 @@ import { ResponsivaModal } from '../components/ResponsivaModal';
 import { SwapModal } from '../components/SwapModal';
 import { UserFormModal } from '../components/UserFormModal';
 import { QuickUserAuditModal } from '../components/QuickUserAuditModal';
+import { QuickUserAssignModal } from '../components/QuickUserAssignModal';
 
 // --- NODOS PERSONALIZADOS PARA REACT FLOW ---
 const CustomUserNode = ({ data }: { data: any }) => (
@@ -165,9 +166,8 @@ export const UsersDiagramView: React.FC = () => {
   // Modales secundarios de la vista de detalle
   const [swapModalOpen, setSwapModalOpen] = useState(false);
   const [responsivaModalOpen, setResponsivaModalOpen] = useState(false);
-  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assignTargetUser, setAssignTargetUser] = useState<User | null>(null);
   const [availableStockAssets, setAvailableStockAssets] = useState<Asset[]>([]);
-  const [selectedAssignAssetId, setSelectedAssignAssetId] = useState<string>('');
 
   const nodeTypes = useMemo(
     () => ({
@@ -251,25 +251,6 @@ export const UsersDiagramView: React.FC = () => {
     (changes: any) => setEdges((eds) => applyEdgeChanges(changes, eds)),
     []
   );
-
-  const handleAssignDirect = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedAssignAssetId || !selectedUserId) return;
-
-    try {
-      await api.assignAsset({
-        asset_id: selectedAssignAssetId,
-        user_id: selectedUserId,
-        notes: 'Asignación directa desde vista de colaborador',
-      });
-      setAssignModalOpen(false);
-      setSelectedAssignAssetId('');
-      loadUserDetails(selectedUserId);
-      loadUsers();
-    } catch (err: any) {
-      alert(err.message || 'Error al asignar activo');
-    }
-  };
 
   // Filtrado de la tabla de usuarios
   const departments = useMemo(() => {
@@ -587,6 +568,18 @@ export const UsersDiagramView: React.FC = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
+                              setAssignTargetUser(u);
+                            }}
+                            className="inline-flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg shadow-xs transition"
+                            title="Asignar equipos con escáner continuo y filtros de stock"
+                          >
+                            <PlusCircle className="w-3.5 h-3.5" />
+                            <span>Asignar</span>
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setAuditTargetUser(u);
                             }}
                             className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs transition hover:shadow"
@@ -631,6 +624,21 @@ export const UsersDiagramView: React.FC = () => {
             onClose={() => setAuditTargetUser(null)}
             onAuditFinished={() => {
               loadUsers();
+            }}
+          />
+        )}
+
+        {/* Modal Asignación Rápida de Hardware (Escáner continuo y Filtros) */}
+        {assignTargetUser && (
+          <QuickUserAssignModal
+            user={assignTargetUser}
+            onClose={() => setAssignTargetUser(null)}
+            onAssignmentsUpdated={() => {
+              loadUsers();
+            }}
+            onOpenResponsiva={() => {
+              setSelectedUserId(assignTargetUser.id);
+              setResponsivaModalOpen(true);
             }}
           />
         )}
@@ -785,12 +793,12 @@ export const UsersDiagramView: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => setAssignModalOpen(true)}
+                    onClick={() => currentUser && setAssignTargetUser(currentUser)}
                     className="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-200 hover:border-sky-300 hover:bg-sky-50/50 transition text-center gap-1.5"
                   >
                     <PlusCircle className="w-4 h-4 text-sky-600" />
-                    <span className="text-xs font-bold text-slate-900 leading-tight">Asignar Equipo</span>
-                    <span className="text-[10px] text-slate-500">Desde stock disponible</span>
+                    <span className="text-xs font-bold text-slate-900 leading-tight">Asignar Equipos</span>
+                    <span className="text-[10px] text-slate-500">Escáner continuo o filtros</span>
                   </button>
 
                   <button
@@ -877,53 +885,20 @@ export const UsersDiagramView: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Asignar Directo */}
-      {assignModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6 space-y-4">
-            <h3 className="text-sm font-bold text-slate-900">Asignar Equipo en Stock</h3>
-            <p className="text-xs text-slate-500">
-              Selecciona un equipo disponible para asignárselo a <strong>{currentUser?.full_name}</strong>
-            </p>
-
-            <form onSubmit={handleAssignDirect} className="space-y-4 text-xs">
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">
-                  Equipo Disponible en Stock:
-                </label>
-                <select
-                  value={selectedAssignAssetId}
-                  onChange={(e) => setSelectedAssignAssetId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-sky-500"
-                >
-                  <option value="">-- Seleccionar Activo --</option>
-                  {availableStockAssets.map((ast) => (
-                    <option key={ast.id} value={ast.id}>
-                      [{ast.category}] {ast.asset_tag} - {ast.brand} {ast.model} (S/N: {ast.serial_number})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setAssignModalOpen(false)}
-                  className="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={!selectedAssignAssetId}
-                  className="px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-bold disabled:opacity-50"
-                >
-                  Asignar Activo
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Modal Asignación Rápida de Hardware (Escáner continuo y Filtros) */}
+      {assignTargetUser && (
+        <QuickUserAssignModal
+          user={assignTargetUser}
+          onClose={() => setAssignTargetUser(null)}
+          onAssignmentsUpdated={() => {
+            loadUsers();
+            if (selectedUserId) loadUserDetails(selectedUserId);
+          }}
+          onOpenResponsiva={() => {
+            setSelectedUserId(assignTargetUser.id);
+            setResponsivaModalOpen(true);
+          }}
+        />
       )}
 
       {/* Modal Swap */}
