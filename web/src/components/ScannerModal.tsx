@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Camera, Keyboard, CheckCircle, AlertTriangle, RefreshCw, Zap } from 'lucide-react';
+import { X, Camera, Keyboard, CheckCircle, AlertTriangle, RefreshCw, Zap, Barcode } from 'lucide-react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { api } from '../api';
 import { AuditCampaign, AuditScan, User } from '../types';
@@ -44,8 +44,8 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
         'qr-reader-container',
         {
           fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0,
+          qrbox: { width: 280, height: 130 },
+          aspectRatio: 1.77,
         },
         false
       );
@@ -120,10 +120,10 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center">
-              <Camera className="w-4 h-4" />
+              <Barcode className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Auditoría con Escáner QR</h3>
+              <h3 className="text-sm font-bold text-slate-900">Auditoría con Código de Barras</h3>
               <p className="text-[11px] text-slate-500">Lectura y verificación de código de activo</p>
             </div>
           </div>
@@ -290,7 +290,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
                 className="overflow-hidden rounded-xl border border-slate-200 bg-black min-h-[260px]"
               />
               <p className="text-[11px] text-slate-400 text-center mt-3">
-                Apunta la cámara al código QR impreso en la etiqueta del equipo.
+                Apunta la cámara al código de barras impreso en la etiqueta del equipo.
               </p>
             </div>
           ) : (

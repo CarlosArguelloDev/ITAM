@@ -1,5 +1,5 @@
 import React from 'react';
-import { QrCode } from 'lucide-react';
+import { Barcode } from 'lucide-react';
 
 interface HeaderProps {
   title: string;
@@ -24,8 +24,8 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={onOpenScanner}
           className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition-all hover:shadow"
         >
-          <QrCode className="w-4 h-4" />
-          <span>Escanear Activo (QR)</span>
+          <Barcode className="w-4 h-4" />
+          <span>Escanear Código de Barras</span>
         </button>
       </div>
     </header>

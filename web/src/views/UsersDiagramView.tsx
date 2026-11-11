@@ -34,7 +34,7 @@ import {
   Box,
   Share2,
   Eye,
-  QrCode,
+  Barcode,
 } from 'lucide-react';
 
 import { User, Asset, UserDiagramResponse, AssetHistory, AlertItem } from '../types';
@@ -592,7 +592,7 @@ export const UsersDiagramView: React.FC = () => {
                             className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs transition hover:shadow"
                             title="Iniciar escaneo físico y auditoría rápida"
                           >
-                            <QrCode className="w-3.5 h-3.5" />
+                            <Barcode className="w-3.5 h-3.5" />
                             <span>Auditoría</span>
                           </button>
                         </div>
@@ -676,7 +676,7 @@ export const UsersDiagramView: React.FC = () => {
               onClick={() => setAuditTargetUser(currentUser)}
               className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl shadow-xs transition"
             >
-              <QrCode className="w-3.5 h-3.5" />
+              <Barcode className="w-3.5 h-3.5" />
               <span>Auditoría Rápida</span>
             </button>
           )}

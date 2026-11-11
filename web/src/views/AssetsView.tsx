@@ -3,7 +3,7 @@ import {
   Plus,
   Search,
   Filter,
-  QrCode,
+  Barcode,
   Edit2,
   Trash2,
   Laptop,
@@ -17,7 +17,7 @@ import {
 import { Asset, User, AssetCategory, AssetStatus } from '../types';
 import { api } from '../api';
 import { AssetFormModal } from '../components/AssetFormModal';
-import { QRStickerModal } from '../components/QRStickerModal';
+import { BarcodeStickerModal } from '../components/BarcodeStickerModal';
 
 export const AssetsView: React.FC = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -33,7 +33,7 @@ export const AssetsView: React.FC = () => {
   // Modales
   const [formOpen, setFormOpen] = useState(false);
   const [assetToEdit, setAssetToEdit] = useState<Asset | null>(null);
-  const [qrModalAsset, setQrModalAsset] = useState<Asset | null>(null);
+  const [barcodeModalAsset, setBarcodeModalAsset] = useState<Asset | null>(null);
 
   useEffect(() => {
     loadData();
@@ -264,11 +264,11 @@ export const AssetsView: React.FC = () => {
                   <td className="py-3.5 px-6 text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       <button
-                        onClick={() => setQrModalAsset(a)}
+                        onClick={() => setBarcodeModalAsset(a)}
                         className="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition"
-                        title="Imprimir Etiqueta QR"
+                        title="Imprimir Código de Barras"
                       >
-                        <QrCode className="w-4 h-4" />
+                        <Barcode className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => {
@@ -315,9 +315,9 @@ export const AssetsView: React.FC = () => {
         />
       )}
 
-      {/* Modal Etiqueta QR Imprimible */}
-      {qrModalAsset && (
-        <QRStickerModal asset={qrModalAsset} onClose={() => setQrModalAsset(null)} />
+      {/* Modal Etiqueta Código de Barras Imprimible */}
+      {barcodeModalAsset && (
+        <BarcodeStickerModal asset={barcodeModalAsset} onClose={() => setBarcodeModalAsset(null)} />
       )}
     </div>
   );

@@ -1,16 +1,14 @@
 import React from 'react';
-import { X, Printer, QrCode } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import { X, Printer, Barcode as BarcodeIcon } from 'lucide-react';
+import { Barcode } from './Barcode';
 import { Asset } from '../types';
 
-interface QRStickerModalProps {
+interface BarcodeStickerModalProps {
   asset: Asset;
   onClose: () => void;
 }
 
-export const QRStickerModal: React.FC<QRStickerModalProps> = ({ asset, onClose }) => {
-  const auditUrl = `${window.location.origin}/audit/scan/${encodeURIComponent(asset.asset_tag)}`;
-
+export const BarcodeStickerModal: React.FC<BarcodeStickerModalProps> = ({ asset, onClose }) => {
   const handlePrint = () => {
     window.print();
   };
@@ -21,8 +19,8 @@ export const QRStickerModal: React.FC<QRStickerModalProps> = ({ asset, onClose }
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-2.5">
-            <QrCode className="w-5 h-5 text-sky-600" />
-            <h3 className="text-sm font-bold text-slate-900">Etiqueta de Activo Físico</h3>
+            <BarcodeIcon className="w-5 h-5 text-sky-600" />
+            <h3 className="text-sm font-bold text-slate-900">Etiqueta con Código de Barras</h3>
           </div>
           <button
             onClick={onClose}
@@ -35,38 +33,35 @@ export const QRStickerModal: React.FC<QRStickerModalProps> = ({ asset, onClose }
         {/* Sticker Preview */}
         <div className="p-6 flex flex-col items-center">
           <p className="text-xs text-slate-500 mb-4 text-center">
-            Formato estándar corporativo para rotulación e inventario con escáner de cámara.
+            Formato estándar corporativo con código de barras Code 128 para inventario y pistolas lectoras.
           </p>
 
           {/* Tarjeta de Etiqueta Imprimible */}
           <div
             id="printable-content"
-            className="w-72 bg-white border-2 border-dashed border-slate-400 p-4 rounded-xl flex flex-col items-center shadow-sm text-center relative"
+            className="w-80 bg-white border-2 border-dashed border-slate-400 p-4 rounded-xl flex flex-col items-center shadow-sm text-center relative"
           >
-            <div className="w-full flex items-center justify-between border-b border-slate-200 pb-1.5 mb-3">
+            <div className="w-full flex items-center justify-between border-b border-slate-200 pb-1.5 mb-2">
               <span className="text-[10px] font-bold tracking-wider uppercase text-sky-700">
                 PROPIEDAD DE TI
               </span>
               <span className="text-[9px] font-mono text-slate-400">CONTROL TI</span>
             </div>
 
-            {/* Código QR */}
-            <div className="p-2 bg-white rounded-lg border border-slate-200 shadow-inner mb-3">
-              <QRCodeSVG
-                value={auditUrl}
-                size={140}
-                level="M"
-                includeMargin={false}
+            {/* Código de Barras Code 128 */}
+            <div className="p-1.5 bg-white rounded-lg border border-slate-200 shadow-inner mb-2 w-full flex justify-center overflow-hidden">
+              <Barcode
+                value={asset.asset_tag}
+                width={1.9}
+                height={52}
+                fontSize={12}
+                margin={4}
+                className="max-w-full"
               />
             </div>
 
-            {/* Asset Tag */}
-            <h4 className="text-base font-mono font-bold text-slate-900 tracking-tight">
-              {asset.asset_tag}
-            </h4>
-
             {/* Serial & Model */}
-            <p className="text-xs font-semibold text-slate-700 mt-0.5">
+            <p className="text-xs font-semibold text-slate-700 mt-1">
               {asset.brand} {asset.model}
             </p>
             <p className="text-[11px] font-mono text-slate-500">

@@ -58,7 +58,7 @@ export const App: React.FC = () => {
       case 'assets':
         return {
           title: 'Inventario de Activos (Hardware)',
-          subtitle: 'Altas, bajas, especificaciones técnicas y rotulación QR',
+          subtitle: 'Altas, bajas, especificaciones técnicas y rotulación con código de barras',
         };
       case 'users':
         return {

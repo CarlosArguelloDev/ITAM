@@ -6,7 +6,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   History,
-  QrCode,
+  Barcode,
   Camera,
   RefreshCw,
   Search,
@@ -72,7 +72,7 @@ export const AuditsView: React.FC = () => {
     if (cameraActive && subTab === 'SITE_SCAN') {
       const scanner = new Html5QrcodeScanner(
         'site-audit-camera-container',
-        { fps: 10, qrbox: { width: 220, height: 220 }, aspectRatio: 1.0 },
+        { fps: 10, qrbox: { width: 280, height: 120 }, aspectRatio: 1.77 },
         false
       );
 
@@ -468,7 +468,7 @@ export const AuditsView: React.FC = () => {
                 className="flex gap-2"
               >
                 <div className="relative flex-1">
-                  <QrCode className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <Barcode className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                   <input
                     type="text"
                     value={inputTag}
