@@ -257,21 +257,9 @@ for (const a of rawAssignments) {
   }
   usedTags.add(tag);
 
-  // Match User
+  // Assets start unassigned in inventory
   let assignedUserId = null;
   let status = 'AVAILABLE';
-
-  if (a.user) {
-    let normU = normalizeName(a.user);
-    if (nameAliases[normU]) normU = nameAliases[normU];
-
-    const isStock = /^(it|zit|unnasigned|sin asignacion|workstation|enfermera|chica de apoyoyo manto|trainee hr|supervisores producion|supervisores production|rh)\b/i.test(normU);
-    if (!isStock && userMapByNormName.has(normU)) {
-      const matchedUser = userMapByNormName.get(normU);
-      assignedUserId = matchedUser.id;
-      status = 'ASSIGNED';
-    }
-  }
 
   // Brand / Model fallbacks
   let brand = a.brand || 'Generico';
