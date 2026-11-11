@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Laptop,
   AlertTriangle,
@@ -43,16 +43,56 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
     }
   };
 
-  // Colores para las categorías en el gráfico
-  const categoryColors: Record<string, string> = {
-    LAPTOP: '#0284C7', // sky-600
+  // Paleta de colores para las categorías en el gráfico
+  const categoryPalette: Record<string, string> = {
     MONITOR: '#6366F1', // indigo-500
+    LAPTOP: '#0284C7', // sky-600
+    AUDIFONOS: '#F59E0B', // amber-500
+    TELEFONO: '#10B981', // emerald-500
+    SWITCH: '#8B5CF6', // purple-500
+    'ACCESS POINT': '#EC4899', // pink-500
+    IMPRESORA: '#3B82F6', // blue-500
     DOCKING: '#0D9488', // teal-600
-    PERIPHERAL: '#F59E0B', // amber-500
-    OTHER: '#94A3B8', // slate-400
+    WORKSTATION: '#64748B', // slate-500
+    'SIM-CARD': '#A855F7', // purple-400
+    'OTROS (< 5%)': '#94A3B8', // slate-400
+    OTROS: '#94A3B8',
+  };
+
+  const getCategoryColor = (cat: string, index: number) => {
+    if (categoryPalette[cat]) return categoryPalette[cat];
+    const fallback = ['#0EA5E9', '#14B8A6', '#8B5CF6', '#F97316', '#E11D48', '#84CC16', '#6366F1'];
+    return fallback[index % fallback.length];
   };
 
   const totalAssets = stats?.total_assets || 0;
+
+  // Agrupar categorías para la gráfica: aquellas con menos de 5% se agrupan en "OTROS"
+  const chartCategories = useMemo(() => {
+    if (!stats?.category_counts || totalAssets === 0) return [];
+
+    const entries = Object.entries(stats.category_counts);
+    entries.sort((a, b) => b[1] - a[1]);
+
+    const main: { name: string; count: number; pct: number }[] = [];
+    let othersCount = 0;
+
+    entries.forEach(([cat, count]) => {
+      const pct = (count / totalAssets) * 100;
+      if (pct >= 5.0) {
+        main.push({ name: cat, count, pct });
+      } else {
+        othersCount += count;
+      }
+    });
+
+    if (othersCount > 0) {
+      const othersPct = (othersCount / totalAssets) * 100;
+      main.push({ name: 'OTROS (< 5%)', count: othersCount, pct: othersPct });
+    }
+
+    return main;
+  }, [stats?.category_counts, totalAssets]);
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
@@ -191,8 +231,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
               <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90 transform">
                 {(() => {
                   let accumulatedPercent = 0;
-                  const categories = stats?.category_counts ? Object.entries(stats.category_counts) : [];
-                  if (categories.length === 0 || totalAssets === 0) {
+                  if (chartCategories.length === 0 || totalAssets === 0) {
                     return (
                       <circle
                         cx="50"
@@ -205,16 +244,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
                     );
                   }
 
-                  return categories.map(([cat, count]) => {
-                    const percent = (count / totalAssets) * 100;
-                    const strokeDasharray = `${percent * 2.387} 238.7`;
+                  return chartCategories.map((item, idx) => {
+                    const strokeDasharray = `${item.pct * 2.387} 238.7`;
                     const strokeDashoffset = `-${accumulatedPercent * 2.387}`;
-                    accumulatedPercent += percent;
-                    const color = categoryColors[cat] || '#94A3B8';
+                    accumulatedPercent += item.pct;
+                    const color = getCategoryColor(item.name, idx);
 
                     return (
                       <circle
-                        key={cat}
+                        key={item.name}
                         cx="50"
                         cy="50"
                         r="38"
@@ -235,30 +273,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
               </div>
             </div>
 
-            {/* Leyenda Detallada */}
-            <div className="space-y-2 w-full max-w-xs">
-              {stats?.category_counts &&
-                Object.entries(stats.category_counts).map(([cat, count]) => {
-                  const pct = totalAssets > 0 ? Math.round((count / totalAssets) * 100) : 0;
-                  const color = categoryColors[cat] || '#94A3B8';
-                  return (
-                    <div key={cat} className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-3 h-3 rounded-full shrink-0"
-                          style={{ backgroundColor: color }}
-                        />
-                        <span className="font-medium text-slate-700">{cat}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-900">{count}</span>
-                        <span className="text-[10px] text-slate-400 w-8 text-right font-mono">
-                          {pct}%
-                        </span>
-                      </div>
+            {/* Leyenda Detallada con Scroll si se requiere */}
+            <div className="space-y-1.5 w-full max-w-xs max-h-[230px] overflow-y-auto pr-1">
+              {chartCategories.map((item, idx) => {
+                const color = getCategoryColor(item.name, idx);
+                return (
+                  <div key={item.name} className="flex items-center justify-between text-xs py-0.5">
+                    <div className="flex items-center gap-2 truncate">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: color }}
+                      />
+                      <span className="font-semibold text-slate-700 truncate">{item.name}</span>
                     </div>
-                  );
-                })}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-bold text-slate-900">{item.count}</span>
+                      <span className="text-[10px] text-slate-400 w-10 text-right font-mono">
+                        {item.pct.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
