@@ -78,6 +78,11 @@ export const api = {
   deleteAsset: (id: string) =>
     fetchJSON<{ message: string; status?: string }>(`/assets/${id}`, { method: 'DELETE' }),
   getAssetHistory: (id: string) => fetchJSON<AssetHistory[]>(`/assets/${id}/history`),
+  printBrotherLabel: (assetId: string) =>
+    fetchJSON<{ status: string; message: string; printer: string; asset_tag: string }>(
+      `/assets/${assetId}/print-brother`,
+      { method: 'POST' }
+    ),
 
   // Asignaciones & Swap
   assignAsset: (data: { asset_id: string; user_id: string; parent_asset_id?: string; location?: string; notes?: string }) =>

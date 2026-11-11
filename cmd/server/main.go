@@ -109,6 +109,7 @@ func main() {
 			a.Post("/assign", appHandler.AssignAsset)
 			a.Post("/unassign", appHandler.UnassignAsset)
 			a.Post("/swap", appHandler.SwapAsset)
+			a.Post("/{id}/print-brother", appHandler.PrintAssetLabelBrother)
 		})
 
 		// Responsivas y Carga de Documentos

@@ -1,7 +1,8 @@
-import React from 'react';
-import { X, Printer, Barcode as BarcodeIcon } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Printer, Barcode as BarcodeIcon, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Barcode } from './Barcode';
 import { Asset } from '../types';
+import { api } from '../api';
 
 interface BarcodeStickerModalProps {
   asset: Asset;
@@ -9,8 +10,33 @@ interface BarcodeStickerModalProps {
 }
 
 export const BarcodeStickerModal: React.FC<BarcodeStickerModalProps> = ({ asset, onClose }) => {
-  const handlePrint = () => {
+  const [brotherPrinting, setBrotherPrinting] = useState(false);
+  const [brotherSuccess, setBrotherSuccess] = useState<string | null>(null);
+  const [brotherError, setBrotherError] = useState<string | null>(null);
+
+  const handleBrowserPrint = () => {
     window.print();
+  };
+
+  const handleBrotherPrint = async () => {
+    try {
+      setBrotherPrinting(true);
+      setBrotherSuccess(null);
+      setBrotherError(null);
+
+      const res = await api.printBrotherLabel(asset.id);
+      setBrotherSuccess(res.message || `Etiqueta enviada exitosamente a Brother PT-D410`);
+      
+      // Auto-cerrar o limpiar tras 4 segundos
+      setTimeout(() => {
+        setBrotherSuccess(null);
+      }, 4000);
+    } catch (err: any) {
+      console.error('Error al imprimir en Brother:', err);
+      setBrotherError(err.message || 'No se pudo comunicar con Brother PT-D410. Verifica la conexión USB.');
+    } finally {
+      setBrotherPrinting(false);
+    }
   };
 
   return (
@@ -20,7 +46,10 @@ export const BarcodeStickerModal: React.FC<BarcodeStickerModalProps> = ({ asset,
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-2.5">
             <BarcodeIcon className="w-5 h-5 text-sky-600" />
-            <h3 className="text-sm font-bold text-slate-900">Etiqueta con Código de Barras</h3>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Etiqueta de Activo</h3>
+              <p className="text-[11px] text-slate-500 font-medium">Brother PT-D410 (TZe 18mm)</p>
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -30,10 +59,25 @@ export const BarcodeStickerModal: React.FC<BarcodeStickerModalProps> = ({ asset,
           </button>
         </div>
 
+        {/* Notificaciones de Impresión Directa */}
+        {brotherSuccess && (
+          <div className="mx-6 mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-xs text-emerald-800 font-semibold animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{brotherSuccess}</span>
+          </div>
+        )}
+
+        {brotherError && (
+          <div className="mx-6 mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2.5 text-xs text-rose-800 font-semibold animate-in fade-in">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{brotherError}</span>
+          </div>
+        )}
+
         {/* Sticker Preview */}
         <div className="p-6 flex flex-col items-center">
           <p className="text-xs text-slate-500 mb-4 text-center">
-            Formato estándar corporativo con código de barras Code 128 para inventario y pistolas lectoras.
+            Vista previa con plantilla corporativa <strong>etiqueta.lbx</strong>
           </p>
 
           {/* Tarjeta de Etiqueta Imprimible */}
@@ -76,20 +120,40 @@ export const BarcodeStickerModal: React.FC<BarcodeStickerModalProps> = ({ asset,
         </div>
 
         {/* Actions */}
-        <div className="px-5 py-3.5 border-t border-slate-200 flex items-center justify-end gap-2 bg-slate-50">
+        <div className="px-5 py-3.5 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50">
           <button
-            onClick={onClose}
-            className="text-xs font-semibold px-4 py-2 rounded-lg text-slate-700 hover:bg-slate-200/70"
+            onClick={handleBrowserPrint}
+            className="text-xs font-medium px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-200/70 border border-slate-200"
+            title="Abrir diálogo de impresión de Windows o PDF"
           >
-            Cancelar
+            Impresión Navegador / PDF
           </button>
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Imprimir Etiqueta</span>
-          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className="text-xs font-semibold px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-200/70"
+            >
+              Cerrar
+            </button>
+            <button
+              onClick={handleBrotherPrint}
+              disabled={brotherPrinting}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition disabled:opacity-50"
+            >
+              {brotherPrinting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Imprimiendo en Brother...</span>
+                </>
+              ) : (
+                <>
+                  <Printer className="w-4 h-4" />
+                  <span>Imprimir en Brother PT-D410</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
