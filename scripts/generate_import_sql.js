@@ -323,18 +323,26 @@ for (const a of rawAssignments) {
   });
 }
 
-// Link parent_asset_id: If a user has a LAPTOP, other assets assigned to that user point to the laptop!
+// Link parent_asset_id: Computer peripherals point to the user's laptop; SIM-cards point to the user's phone
+const COMPUTER_PERIPHERALS = new Set(['MONITOR', 'DOCKING', 'AUDIFONOS', 'TECLADO', 'MOUSE', 'ADAPTADOR DE RED', 'QUEMADOR DE CD']);
 const userLaptops = new Map();
+const userPhones = new Map();
+
 assets.forEach(ast => {
-  if (ast.assignedUserId && ast.category === 'LAPTOP') {
+  if (ast.assignedUserId && ast.category === 'LAPTOP' && !userLaptops.has(ast.assignedUserId)) {
     userLaptops.set(ast.assignedUserId, ast.id);
+  }
+  if (ast.assignedUserId && ast.category === 'TELEFONO' && !userPhones.has(ast.assignedUserId)) {
+    userPhones.set(ast.assignedUserId, ast.id);
   }
 });
 
 assets.forEach(ast => {
-  if (ast.assignedUserId && ast.category !== 'LAPTOP') {
-    if (userLaptops.has(ast.assignedUserId)) {
+  if (ast.assignedUserId) {
+    if (COMPUTER_PERIPHERALS.has(ast.category) && userLaptops.has(ast.assignedUserId)) {
       ast.parentAssetId = userLaptops.get(ast.assignedUserId);
+    } else if (ast.category === 'SIM-CARD' && userPhones.has(ast.assignedUserId)) {
+      ast.parentAssetId = userPhones.get(ast.assignedUserId);
     }
   }
 });

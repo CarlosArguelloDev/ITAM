@@ -123,6 +123,7 @@ export interface UserDiagramResponse {
   summary: {
     total: number;
     laptops: number;
+    phones?: number;
     dockings: number;
     monitors: number;
     peripherals: number;

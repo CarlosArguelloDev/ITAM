@@ -389,14 +389,32 @@ func (h *AppHandler) AssignAsset(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	isLaptop := category == "LAPTOP"
+	isPC := category == "LAPTOP" || category == "WORKSTATION"
+	isCompPeripheral := category == "MONITOR" || category == "DOCKING" || category == "AUDIFONOS" ||
+		category == "TECLADO" || category == "MOUSE" || category == "ADAPTADOR DE RED" || category == "QUEMADOR DE CD"
 
-	// Auto-vincular satélite a laptop del usuario si no se especificó parent
-	if req.ParentAssetID == nil && !isLaptop {
-		var laptopID string
-		err := h.DB.QueryRow("SELECT id FROM assets WHERE assigned_to_user_id = ? AND category = 'LAPTOP' AND status = 'ASSIGNED' LIMIT 1", req.UserID).Scan(&laptopID)
-		if err == nil && laptopID != "" {
-			req.ParentAssetID = &laptopID
+	// Auto-vincular únicamente periféricos de cómputo a la laptop/workstation del usuario si no se especificó parent
+	if req.ParentAssetID == nil && isCompPeripheral {
+		var pcID string
+		err := h.DB.QueryRow(`
+			SELECT id FROM assets 
+			WHERE assigned_to_user_id = ? AND category IN ('LAPTOP', 'WORKSTATION') AND status = 'ASSIGNED' 
+			ORDER BY CASE WHEN category = 'LAPTOP' THEN 1 ELSE 2 END 
+			LIMIT 1
+		`, req.UserID).Scan(&pcID)
+		if err == nil && pcID != "" {
+			req.ParentAssetID = &pcID
+		}
+	} else if req.ParentAssetID == nil && category == "SIM-CARD" {
+		// Auto-vincular SIM-CARD a un celular del usuario si lo tiene asignado
+		var phoneID string
+		err := h.DB.QueryRow(`
+			SELECT id FROM assets 
+			WHERE assigned_to_user_id = ? AND category = 'TELEFONO' AND status = 'ASSIGNED' 
+			LIMIT 1
+		`, req.UserID).Scan(&phoneID)
+		if err == nil && phoneID != "" {
+			req.ParentAssetID = &phoneID
 		}
 	}
 
@@ -418,12 +436,20 @@ func (h *AppHandler) AssignAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Si el activo asignado es una LAPTOP, vincular automáticamente los satélites que el usuario ya tenga sin padre
-	if isLaptop {
+	// Si el activo asignado es una computadora (LAPTOP / WORKSTATION), vincular automáticamente sus periféricos que el usuario ya tenga sin padre
+	if isPC {
 		_, _ = tx.Exec(`
 			UPDATE assets
 			SET parent_asset_id = ?
-			WHERE assigned_to_user_id = ? AND id != ? AND parent_asset_id IS NULL AND category != 'LAPTOP'
+			WHERE assigned_to_user_id = ? AND id != ? AND parent_asset_id IS NULL 
+			  AND category IN ('MONITOR', 'DOCKING', 'AUDIFONOS', 'TECLADO', 'MOUSE', 'ADAPTADOR DE RED', 'QUEMADOR DE CD')
+		`, req.AssetID, req.UserID, req.AssetID)
+	} else if category == "TELEFONO" {
+		// Si el activo es un teléfono celular, vincular tarjetas SIM que el usuario tenga sin padre
+		_, _ = tx.Exec(`
+			UPDATE assets
+			SET parent_asset_id = ?
+			WHERE assigned_to_user_id = ? AND id != ? AND parent_asset_id IS NULL AND category = 'SIM-CARD'
 		`, req.AssetID, req.UserID, req.AssetID)
 	}
 

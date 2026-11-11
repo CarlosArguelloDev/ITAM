@@ -278,11 +278,13 @@ func (h *AppHandler) GetUserDiagram(w http.ResponseWriter, r *http.Request) {
 
 	// Obtener todos los activos asignados al usuario
 	rows, err := h.DB.Query(`
-		SELECT id, asset_tag, serial_number, category, brand, model, status,
-		       assigned_to_user_id, parent_asset_id, location, specs, warranty_expiry, last_audited_at, created_at
-		FROM assets
-		WHERE assigned_to_user_id = ?
-		ORDER BY category ASC
+		SELECT a.id, a.asset_tag, a.serial_number, a.category, a.brand, a.model, a.status,
+		       a.assigned_to_user_id, a.parent_asset_id, p.asset_tag AS parent_asset_tag,
+		       a.location, a.specs, a.warranty_expiry, a.last_audited_at, a.created_at
+		FROM assets a
+		LEFT JOIN assets p ON a.parent_asset_id = p.id
+		WHERE a.assigned_to_user_id = ?
+		ORDER BY a.category ASC
 	`, id)
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error al leer activos: "+err.Error())
@@ -291,34 +293,27 @@ func (h *AppHandler) GetUserDiagram(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	assignedAssets := []models.Asset{}
-	var primaryLaptop *models.Asset
-	satelliteAssets := []models.Asset{}
-
 	for rows.Next() {
 		var a models.Asset
 		var specsStr string
 		var lastAuditedStr *string
 		if err := rows.Scan(
 			&a.ID, &a.AssetTag, &a.SerialNumber, &a.Category, &a.Brand, &a.Model, &a.Status,
-			&a.AssignedToUserID, &a.ParentAssetID, &a.Location, &specsStr, &a.WarrantyExpiry, &lastAuditedStr, &a.CreatedAt,
+			&a.AssignedToUserID, &a.ParentAssetID, &a.ParentAssetTag, &a.Location, &specsStr, &a.WarrantyExpiry, &lastAuditedStr, &a.CreatedAt,
 		); err == nil {
 			a.LastAuditedAt = ParseNullTime(lastAuditedStr)
 			a.Specs = json.RawMessage(specsStr)
 			assignedAssets = append(assignedAssets, a)
-			if a.Category == models.CategoryLaptop && primaryLaptop == nil {
-				laptopCopy := a
-				primaryLaptop = &laptopCopy
-			} else {
-				satelliteAssets = append(satelliteAssets, a)
-			}
 		}
 	}
+	u.AssignedAssets = assignedAssets
 
 	nodes := []models.DiagramNode{}
 	edges := []models.DiagramEdge{}
 	summary := map[string]int{
 		"total":       len(assignedAssets),
 		"laptops":     0,
+		"phones":      0,
 		"dockings":    0,
 		"monitors":    0,
 		"peripherals": 0,
@@ -327,27 +322,104 @@ func (h *AppHandler) GetUserDiagram(w http.ResponseWriter, r *http.Request) {
 
 	for _, a := range assignedAssets {
 		switch a.Category {
-		case models.CategoryLaptop:
+		case models.CategoryLaptop, "WORKSTATION":
 			summary["laptops"]++
+		case "TELEFONO", "IPAD":
+			summary["phones"]++
 		case models.CategoryDocking:
 			summary["dockings"]++
 		case models.CategoryMonitor:
 			summary["monitors"]++
-		case models.CategoryPeripheral:
+		case models.CategoryPeripheral, "AUDIFONOS", "SIM-CARD":
 			summary["peripherals"]++
 		default:
 			summary["others"]++
 		}
 	}
 
+	// Clasificación inteligente de jerarquía
+	isCompPeripheral := func(cat string) bool {
+		switch cat {
+		case "MONITOR", "DOCKING", "AUDIFONOS", "TECLADO", "MOUSE", "ADAPTADOR DE RED", "QUEMADOR DE CD":
+			return true
+		default:
+			return false
+		}
+	}
+
+	isDirectDevice := func(a models.Asset) bool {
+		// Si tiene parent_asset_id explícito, es hijo de ese activo
+		if a.ParentAssetID != nil && *a.ParentAssetID != "" {
+			return false
+		}
+		// Celulares, Laptops, Workstations, iPads, Scanners son equipos directos del colaborador
+		switch a.Category {
+		case "LAPTOP", "WORKSTATION", "TELEFONO", "IPAD", "SCANNER", "TELEFONO FIJO", "GOPRO":
+			return true
+		case "SIM-CARD":
+			return false
+		default:
+			return !isCompPeripheral(a.Category)
+		}
+	}
+
+	// Separar activos directos del usuario vs periféricos
+	directDevices := []models.Asset{}
+	peripherals := []models.Asset{}
+
+	for _, a := range assignedAssets {
+		if isDirectDevice(a) {
+			directDevices = append(directDevices, a)
+		} else {
+			peripherals = append(peripherals, a)
+		}
+	}
+
+	// Buscar computadora principal y teléfono principal para asignar periféricos huérfanos
+	var primaryCompID string
+	var primaryPhoneID string
+	for _, d := range directDevices {
+		if (d.Category == "LAPTOP" || d.Category == "WORKSTATION") && primaryCompID == "" {
+			primaryCompID = d.ID
+		}
+		if d.Category == "TELEFONO" && primaryPhoneID == "" {
+			primaryPhoneID = d.ID
+		}
+	}
+
+	// Mapear hijos por ID de dispositivo padre
+	deviceChildren := make(map[string][]models.Asset)
+	orphanPeripherals := []models.Asset{}
+
+	for _, p := range peripherals {
+		targetParentID := ""
+		if p.ParentAssetID != nil && *p.ParentAssetID != "" {
+			targetParentID = *p.ParentAssetID
+		} else if p.Category == "SIM-CARD" && primaryPhoneID != "" {
+			targetParentID = primaryPhoneID
+		} else if isCompPeripheral(p.Category) && primaryCompID != "" {
+			targetParentID = primaryCompID
+		}
+
+		if targetParentID != "" {
+			deviceChildren[targetParentID] = append(deviceChildren[targetParentID], p)
+		} else {
+			orphanPeripherals = append(orphanPeripherals, p)
+		}
+	}
+
+	// Si hay periféricos huérfanos sin computadora, se muestran directos al usuario
+	directDevices = append(directDevices, orphanPeripherals...)
+
 	// Nodo Raíz de Usuario
 	userNodeID := fmt.Sprintf("node-usr-%s", u.ID)
+	userCenterX := 550.0
 	nodes = append(nodes, models.DiagramNode{
 		ID:   userNodeID,
 		Type: "userNode",
 		Position: models.NodePosition{
-			X: 300,
-			Y: 30,
+			X: userCenterX - 110.0,
+			Y: 20,
 		},
 		Data: map[string]interface{}{
 			"id":            u.ID,
@@ -360,103 +432,129 @@ func (h *AppHandler) GetUserDiagram(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 
-	var rootAssetNodeID string
-
-	// Si hay Laptop primaria, es el nodo central de equipamiento
-	if primaryLaptop != nil {
-		rootAssetNodeID = fmt.Sprintf("node-ast-%s", primaryLaptop.ID)
-		nodes = append(nodes, models.DiagramNode{
-			ID:   rootAssetNodeID,
-			Type: "laptopNode",
-			Position: models.NodePosition{
-				X: 300,
-				Y: 180,
-			},
-			Data: map[string]interface{}{
-				"id":            primaryLaptop.ID,
-				"asset_tag":     primaryLaptop.AssetTag,
-				"serial_number": primaryLaptop.SerialNumber,
-				"category":      primaryLaptop.Category,
-				"brand":         primaryLaptop.Brand,
-				"model":         primaryLaptop.Model,
-				"status":        primaryLaptop.Status,
-				"location":      primaryLaptop.Location,
-				"specs":         primaryLaptop.Specs,
-			},
-		})
-
-		// Edge Usuario -> Laptop
-		edges = append(edges, models.DiagramEdge{
-			ID:       fmt.Sprintf("edge-usr-%s-laptop", u.ID),
-			Source:   userNodeID,
-			Target:   rootAssetNodeID,
-			Label:    "Custodia Primaria",
-			Animated: true,
-		})
+	// Posicionar Dispositivos Directos (Nivel 1)
+	numDirect := len(directDevices)
+	spacingDirect := 320.0
+	startDirectX := userCenterX - (float64(numDirect-1)*spacingDirect)/2.0
+	if startDirectX < 30 {
+		startDirectX = 30
 	}
 
-	// Distribuir nodos satélite (Dockings, Monitores, Periféricos)
-	numSatellites := len(satelliteAssets)
-	if numSatellites > 0 {
-		spacingX := 240.0
-		startX := 300.0 - (float64(numSatellites-1)*spacingX)/2.0
-		if startX < 20 {
-			startX = 20
+	for i, dev := range directDevices {
+		devNodeID := fmt.Sprintf("node-ast-%s", dev.ID)
+		devX := startDirectX + float64(i)*spacingDirect
+		devY := 190.0
+
+		// Seleccionar tipo de nodo
+		devNodeType := "peripheralNode"
+		edgeLabel := "Custodia Directa"
+		switch dev.Category {
+		case "LAPTOP":
+			devNodeType = "laptopNode"
+			edgeLabel = "Laptop Principal"
+		case "WORKSTATION":
+			devNodeType = "laptopNode"
+			edgeLabel = "Estación Desktop"
+		case "TELEFONO":
+			devNodeType = "phoneNode"
+			edgeLabel = "Celular Asignado"
+		case "IPAD":
+			devNodeType = "phoneNode"
+			edgeLabel = "Tablet / iPad"
+		case "SCANNER":
+			devNodeType = "peripheralNode"
+			edgeLabel = "Terminal Zebra"
 		}
 
-		for i, sat := range satelliteAssets {
-			nodeType := "peripheralNode"
-			switch sat.Category {
-			case models.CategoryDocking:
-				nodeType = "dockingNode"
-			case models.CategoryMonitor:
-				nodeType = "monitorNode"
-			case models.CategoryLaptop:
-				nodeType = "laptopNode"
+		nodes = append(nodes, models.DiagramNode{
+			ID:   devNodeID,
+			Type: devNodeType,
+			Position: models.NodePosition{
+				X: devX - 110.0,
+				Y: devY,
+			},
+			Data: map[string]interface{}{
+				"id":            dev.ID,
+				"asset_tag":     dev.AssetTag,
+				"serial_number": dev.SerialNumber,
+				"category":      dev.Category,
+				"brand":         dev.Brand,
+				"model":         dev.Model,
+				"status":        dev.Status,
+				"location":      dev.Location,
+				"specs":         dev.Specs,
+			},
+		})
+
+		// Edge Usuario -> Dispositivo Directo
+		edges = append(edges, models.DiagramEdge{
+			ID:       fmt.Sprintf("edge-usr-%s", dev.ID),
+			Source:   userNodeID,
+			Target:   devNodeID,
+			Label:    edgeLabel,
+			Animated: true,
+		})
+
+		// Periféricos conectados a este dispositivo (Nivel 2)
+		children := deviceChildren[dev.ID]
+		numChildren := len(children)
+		if numChildren > 0 {
+			spacingChild := 230.0
+			startChildX := devX - (float64(numChildren-1)*spacingChild)/2.0
+
+			for j, child := range children {
+				childNodeID := fmt.Sprintf("node-ast-%s", child.ID)
+				childX := startChildX + float64(j)*spacingChild
+				childY := 370.0
+				if j%2 == 1 {
+					childY = 410.0
+				}
+
+				childNodeType := "peripheralNode"
+				childEdgeLabel := "Conectado"
+				switch child.Category {
+				case "DOCKING":
+					childNodeType = "dockingNode"
+					childEdgeLabel = "Replicador Dock"
+				case "MONITOR":
+					childNodeType = "monitorNode"
+					childEdgeLabel = "Pantalla Externa"
+				case "AUDIFONOS":
+					childNodeType = "peripheralNode"
+					childEdgeLabel = "Audio / Headset"
+				case "SIM-CARD":
+					childNodeType = "peripheralNode"
+					childEdgeLabel = "Línea / SIM 5G"
+				}
+
+				nodes = append(nodes, models.DiagramNode{
+					ID:   childNodeID,
+					Type: childNodeType,
+					Position: models.NodePosition{
+						X: childX - 100.0,
+						Y: childY,
+					},
+					Data: map[string]interface{}{
+						"id":            child.ID,
+						"asset_tag":     child.AssetTag,
+						"serial_number": child.SerialNumber,
+						"category":      child.Category,
+						"brand":         child.Brand,
+						"model":         child.Model,
+						"status":        child.Status,
+						"location":      child.Location,
+						"specs":         child.Specs,
+					},
+				})
+
+				edges = append(edges, models.DiagramEdge{
+					ID:       fmt.Sprintf("edge-%s-%s", dev.ID, child.ID),
+					Source:   devNodeID,
+					Target:   childNodeID,
+					Label:    childEdgeLabel,
+					Animated: false,
+				})
 			}
-
-			satNodeID := fmt.Sprintf("node-ast-%s", sat.ID)
-			satY := 360.0
-			// Escalonar un poco si hay muchos
-			if i%2 == 1 {
-				satY = 400.0
-			}
-
-			nodes = append(nodes, models.DiagramNode{
-				ID:   satNodeID,
-				Type: nodeType,
-				Position: models.NodePosition{
-					X: startX + float64(i)*spacingX,
-					Y: satY,
-				},
-				Data: map[string]interface{}{
-					"id":            sat.ID,
-					"asset_tag":     sat.AssetTag,
-					"serial_number": sat.SerialNumber,
-					"category":      sat.Category,
-					"brand":         sat.Brand,
-					"model":         sat.Model,
-					"status":        sat.Status,
-					"location":      sat.Location,
-					"specs":         sat.Specs,
-				},
-			})
-
-			// Conectar al nodo Laptop o al Usuario si no hay laptop
-			sourceID := rootAssetNodeID
-			edgeLabel := "Conectado a Laptop"
-			if sourceID == "" {
-				sourceID = userNodeID
-				edgeLabel = "Asignado directo"
-			}
-
-			edges = append(edges, models.DiagramEdge{
-				ID:       fmt.Sprintf("edge-%s-%s", sourceID, satNodeID),
-				Source:   sourceID,
-				Target:   satNodeID,
-				Label:    edgeLabel,
-				Animated: false,
-			})
 		}
 	}
 
