@@ -95,15 +95,17 @@ func (h *AppHandler) PrintAssetLabelBrother(w http.ResponseWriter, r *http.Reque
 		printerName = "Brother PT-D410"
 	}
 
-	// 4. Preparar textos
-	brandModel := strings.TrimSpace(fmt.Sprintf("%s %s", asset.Brand, asset.Model))
-	if brandModel == "" {
-		brandModel = string(asset.Category)
-	}
+	// 4. Preparar textos: arriba va el número de serie (si es legible), y el código de barras lleva serie o asset_tag
+	serial := strings.TrimSpace(asset.SerialNumber)
+	hasValidSerial := serial != "" && !strings.EqualFold(serial, "NO LEGIBLE") && !strings.EqualFold(serial, "NA") && !strings.EqualFold(serial, "N/A")
 
-	// El código de barras lleva el número de serie, y si no tiene serial, lleva el tag
-	barcodeValue := strings.TrimSpace(asset.SerialNumber)
-	if barcodeValue == "" || strings.EqualFold(barcodeValue, "NO LEGIBLE") || strings.EqualFold(barcodeValue, "NA") || strings.EqualFold(barcodeValue, "N/A") {
+	brandModel := serial
+	barcodeValue := serial
+	if !hasValidSerial {
+		brandModel = strings.TrimSpace(fmt.Sprintf("%s %s", asset.Brand, asset.Model))
+		if brandModel == "" {
+			brandModel = string(asset.Category)
+		}
 		barcodeValue = strings.TrimSpace(asset.AssetTag)
 	}
 
