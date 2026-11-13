@@ -25,14 +25,15 @@ def build_label_fields(asset):
     asset_tag = (asset.get("asset_tag") or "").strip()
     serial = (asset.get("serial_number") or "").strip()
 
-    brand_model = f"{brand} {model}".strip() or category
-    if not serial or serial.upper() in ("NO LEGIBLE", "NA", "N/A"):
-        barcode_value = asset_tag
-    else:
+    if serial and serial.upper() not in ("NO LEGIBLE", "NA", "N/A"):
+        top_text = serial
         barcode_value = serial
+    else:
+        top_text = f"{brand} {model}".strip() or category or asset_tag
+        barcode_value = asset_tag
 
     return {
-        "brandModel": brand_model,
+        "brandModel": top_text,
         "assetTag": asset_tag,
         "barcodeValue": barcode_value,
     }
