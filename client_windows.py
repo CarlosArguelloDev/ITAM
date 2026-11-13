@@ -239,6 +239,7 @@ class SatelliteProxyHandler(http.server.BaseHTTPRequestHandler):
 
 class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
+    allow_reuse_address = False
 
 
 if __name__ == "__main__":
