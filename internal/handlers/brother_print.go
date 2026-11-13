@@ -2,13 +2,16 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"opti-itam/internal/models"
@@ -22,28 +25,54 @@ func (h *AppHandler) PrintAssetLabelBrother(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// 1. Obtener activo desde BD
+	// 1. Obtener activo desde BD local o servidor remoto
 	var asset models.Asset
-	var assignedToUserID, parentAssetID, specs, warrantyExpiry, lastAuditedAt sql.NullString
+	if h.DB != nil {
+		var assignedToUserID, parentAssetID, specs, warrantyExpiry, lastAuditedAt sql.NullString
 
-	query := `
-		SELECT id, asset_tag, serial_number, category, brand, model, status,
-		       assigned_to_user_id, parent_asset_id, location, specs, warranty_expiry,
-		       last_audited_at, created_at
-		FROM assets
-		WHERE id = ? OR asset_tag = ?
-	`
-	err := h.DB.QueryRow(query, assetID, assetID).Scan(
-		&asset.ID, &asset.AssetTag, &asset.SerialNumber, &asset.Category, &asset.Brand, &asset.Model,
-		&asset.Status, &assignedToUserID, &parentAssetID, &asset.Location,
-		&specs, &warrantyExpiry, &lastAuditedAt, &asset.CreatedAt,
-	)
-	if err == sql.ErrNoRows {
-		ErrorResponse(w, http.StatusNotFound, "Activo no encontrado")
-		return
-	} else if err != nil {
-		log.Printf("[PRINT-ERROR] Error al buscar activo %s: %v", assetID, err)
-		ErrorResponse(w, http.StatusInternalServerError, "Error al consultar activo")
+		query := `
+			SELECT id, asset_tag, serial_number, category, brand, model, status,
+			       assigned_to_user_id, parent_asset_id, location, specs, warranty_expiry,
+			       last_audited_at, created_at
+			FROM assets
+			WHERE id = ? OR asset_tag = ?
+		`
+		err := h.DB.QueryRow(query, assetID, assetID).Scan(
+			&asset.ID, &asset.AssetTag, &asset.SerialNumber, &asset.Category, &asset.Brand, &asset.Model,
+			&asset.Status, &assignedToUserID, &parentAssetID, &asset.Location,
+			&specs, &warrantyExpiry, &lastAuditedAt, &asset.CreatedAt,
+		)
+		if err == sql.ErrNoRows {
+			ErrorResponse(w, http.StatusNotFound, "Activo no encontrado")
+			return
+		} else if err != nil {
+			log.Printf("[PRINT-ERROR] Error al buscar activo %s: %v", assetID, err)
+			ErrorResponse(w, http.StatusInternalServerError, "Error al consultar activo")
+			return
+		}
+	} else if h.RemoteURL != "" {
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Get(fmt.Sprintf("%s/api/assets/%s", strings.TrimRight(h.RemoteURL, "/"), url.PathEscape(assetID)))
+		if err != nil {
+			log.Printf("[PRINT-ERROR] Error consultando servidor remoto %s: %v", h.RemoteURL, err)
+			ErrorResponse(w, http.StatusBadGateway, "No se pudo consultar el activo en el servidor remoto")
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusNotFound {
+			ErrorResponse(w, http.StatusNotFound, "Activo no encontrado en servidor remoto")
+			return
+		} else if resp.StatusCode != http.StatusOK {
+			ErrorResponse(w, resp.StatusCode, "Error al obtener activo del servidor remoto")
+			return
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&asset); err != nil {
+			ErrorResponse(w, http.StatusInternalServerError, "Error al decodificar activo remoto")
+			return
+		}
+	} else {
+		ErrorResponse(w, http.StatusInternalServerError, "Sin conexión a base de datos ni servidor remoto")
 		return
 	}
 

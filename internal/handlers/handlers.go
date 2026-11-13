@@ -10,6 +10,7 @@ import (
 type AppHandler struct {
 	DB         *sql.DB
 	UploadsDir string
+	RemoteURL  string
 }
 
 func NewAppHandler(db *sql.DB, uploadsDir string) *AppHandler {

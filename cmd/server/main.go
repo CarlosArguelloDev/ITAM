@@ -1,10 +1,13 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -19,34 +22,19 @@ import (
 )
 
 func main() {
-	port := os.Getenv("PORT")
+	remoteFlag := flag.String("remote", os.Getenv("REMOTE_SERVER"), "URL del servidor remoto (ej. http://192.168.16.132:8080)")
+	portFlag := flag.String("port", "", "Puerto HTTP local")
+	flag.Parse()
+
+	port := *portFlag
+	if port == "" {
+		port = os.Getenv("PORT")
+	}
 	if port == "" {
 		port = "8080"
 	}
 
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "./data/opti.db"
-	}
-
-	uploadsDir := os.Getenv("UPLOADS_DIR")
-	if uploadsDir == "" {
-		uploadsDir = "./data/uploads"
-	}
-
-	log.Printf("[ITAM] Iniciando Opti ITAM Server en puerto %s...", port)
-	log.Printf("[ITAM] Ruta de base de datos SQLite: %s", dbPath)
-	log.Printf("[ITAM] Ruta de almacenamiento de archivos: %s", uploadsDir)
-
-	// Inicializar SQLite con PRAGMA WAL, foreign keys y migraciones
-	database, err := db.InitDB(dbPath)
-	if err != nil {
-		log.Fatalf("[ITAM-FATAL] Error crítico al inicializar base de datos: %v", err)
-	}
-	defer database.Close()
-
-	// Crear manejador de endpoints
-	appHandler := handlers.NewAppHandler(database, uploadsDir)
+	remoteServer := strings.TrimRight(strings.TrimSpace(*remoteFlag), "/")
 
 	r := chi.NewRouter()
 
@@ -67,8 +55,49 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	// Rutas de API REST
-	r.Route("/api", func(api chi.Router) {
+	if remoteServer != "" {
+		targetURL, err := url.Parse(remoteServer)
+		if err != nil {
+			log.Fatalf("[ITAM-FATAL] URL remota inválida (%s): %v", remoteServer, err)
+		}
+
+		log.Printf("[ITAM] Iniciando Opti ITAM en MODO SATÉLITE (Puerto :%s -> DB Remota: %s)", port, remoteServer)
+		log.Printf("[ITAM] Impresión Brother PT-D410 habilitada localmente en este equipo.")
+
+		proxy := httputil.NewSingleHostReverseProxy(targetURL)
+		appHandler := &handlers.AppHandler{RemoteURL: remoteServer}
+
+		r.Route("/api", func(api chi.Router) {
+			api.Post("/assets/{id}/print-brother", appHandler.PrintAssetLabelBrother)
+			api.Handle("/*", proxy)
+		})
+	} else {
+		dbPath := os.Getenv("DB_PATH")
+		if dbPath == "" {
+			dbPath = "./data/opti.db"
+		}
+
+		uploadsDir := os.Getenv("UPLOADS_DIR")
+		if uploadsDir == "" {
+			uploadsDir = "./data/uploads"
+		}
+
+		log.Printf("[ITAM] Iniciando Opti ITAM Server en puerto %s...", port)
+		log.Printf("[ITAM] Ruta de base de datos SQLite: %s", dbPath)
+		log.Printf("[ITAM] Ruta de almacenamiento de archivos: %s", uploadsDir)
+
+		// Inicializar SQLite con PRAGMA WAL, foreign keys y migraciones
+		database, err := db.InitDB(dbPath)
+		if err != nil {
+			log.Fatalf("[ITAM-FATAL] Error crítico al inicializar base de datos: %v", err)
+		}
+		defer database.Close()
+
+		// Crear manejador de endpoints
+		appHandler := handlers.NewAppHandler(database, uploadsDir)
+
+		// Rutas de API REST
+		r.Route("/api", func(api chi.Router) {
 		// Health check y estado del sistema
 		api.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			handlers.JSONResponse(w, http.StatusOK, map[string]interface{}{
@@ -144,6 +173,7 @@ func main() {
 			aud.Post("/target-reconcile", appHandler.ReconcileTargetAsset)
 		})
 	})
+	}
 
 	// Servir frontend compilado estático embebido (SPA)
 	distFS, err := web.GetFileSystem()
