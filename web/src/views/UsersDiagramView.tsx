@@ -226,6 +226,7 @@ export const UsersDiagramView: React.FC = () => {
   // Estados para impresión Brother PT-D410
   const [printingAssetId, setPrintingAssetId] = useState<string | null>(null);
   const [printFeedback, setPrintFeedback] = useState<{ id: string; success: boolean; msg: string } | null>(null);
+  const [batchPrintProgress, setBatchPrintProgress] = useState<{ current: number; total: number; tag: string } | null>(null);
 
   const nodeTypes = useMemo(
     () => ({
@@ -270,6 +271,53 @@ export const UsersDiagramView: React.FC = () => {
     } finally {
       setPrintingAssetId(null);
     }
+  };
+
+  const handlePrintAllLabels = async () => {
+    const assets = currentUser?.assigned_assets || [];
+    if (assets.length === 0 || batchPrintProgress) return;
+
+    if (!window.confirm(`¿Enviar a imprimir las ${assets.length} etiquetas de los equipos de ${currentUser?.full_name} a la Brother PT-D410?`)) {
+      return;
+    }
+
+    let okCount = 0;
+    const failedTags: string[] = [];
+
+    for (let i = 0; i < assets.length; i++) {
+      const ast = assets[i];
+      setBatchPrintProgress({ current: i + 1, total: assets.length, tag: ast.asset_tag });
+      setPrintingAssetId(ast.id);
+      setPrintFeedback({
+        id: ast.id,
+        success: true,
+        msg: `Imprimiendo etiqueta ${i + 1} de ${assets.length}: ${ast.asset_tag} (${ast.brand} ${ast.model})...`,
+      });
+      try {
+        await api.printBrotherLabel(ast.id);
+        okCount++;
+      } catch (err) {
+        failedTags.push(ast.asset_tag);
+      }
+    }
+
+    setPrintingAssetId(null);
+    setBatchPrintProgress(null);
+
+    if (failedTags.length === 0) {
+      setPrintFeedback({
+        id: 'batch',
+        success: true,
+        msg: `Cola finalizada: se imprimieron ${okCount} de ${assets.length} etiquetas en Brother PT-D410.`,
+      });
+    } else {
+      setPrintFeedback({
+        id: 'batch',
+        success: false,
+        msg: `Impresión parcial: ${okCount} correctas, fallaron ${failedTags.join(', ')}.`,
+      });
+    }
+    setTimeout(() => setPrintFeedback(null), 7000);
   };
 
   useEffect(() => {
@@ -932,7 +980,7 @@ export const UsersDiagramView: React.FC = () => {
           {/* VISTA 1: LISTADO Y GESTIÓN DE EQUIPOS DEL COLABORADOR */}
           {activeDetailTab === 'LIST' && (
             <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm flex-1 flex flex-col overflow-hidden min-h-0">
-              <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70 shrink-0">
+              <div className="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/70 shrink-0">
                 <div>
                   <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
                     Equipos en Custodia de {currentUser.full_name}
@@ -941,9 +989,26 @@ export const UsersDiagramView: React.FC = () => {
                     Administra, edita detalles, imprime etiquetas Brother o desasigna activos directamente
                   </p>
                 </div>
-                <span className="text-xs font-mono font-bold text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                  {currentUser.assigned_assets?.length || 0} activos asignados
-                </span>
+                <div className="flex items-center gap-2.5">
+                  {(currentUser.assigned_assets?.length || 0) > 0 && (
+                    <button
+                      onClick={handlePrintAllLabels}
+                      disabled={Boolean(batchPrintProgress) || printingAssetId !== null}
+                      className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs transition disabled:opacity-50"
+                      title="Encolar e imprimir secuencialmente las etiquetas de todos los equipos de este usuario en la Brother PT-D410"
+                    >
+                      <Printer className={`w-3.5 h-3.5 ${batchPrintProgress ? 'animate-spin' : ''}`} />
+                      <span>
+                        {batchPrintProgress
+                          ? `Imprimiendo ${batchPrintProgress.current}/${batchPrintProgress.total}...`
+                          : `Imprimir Todas (${currentUser.assigned_assets?.length || 0})`}
+                      </span>
+                    </button>
+                  )}
+                  <span className="text-xs font-mono font-bold text-slate-600 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+                    {currentUser.assigned_assets?.length || 0} activos asignados
+                  </span>
+                </div>
               </div>
 
               <div className="flex-1 overflow-auto">
