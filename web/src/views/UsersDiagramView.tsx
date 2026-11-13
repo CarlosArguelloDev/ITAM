@@ -277,47 +277,33 @@ export const UsersDiagramView: React.FC = () => {
     const assets = currentUser?.assigned_assets || [];
     if (assets.length === 0 || batchPrintProgress) return;
 
-    if (!window.confirm(`¿Enviar a imprimir las ${assets.length} etiquetas de los equipos de ${currentUser?.full_name} a la Brother PT-D410?`)) {
+    if (!window.confirm(`¿Enviar a imprimir las ${assets.length} etiquetas de los equipos de ${currentUser?.full_name} juntas en un solo trabajo a la Brother PT-D410?`)) {
       return;
     }
 
-    let okCount = 0;
-    const failedTags: string[] = [];
-
-    for (let i = 0; i < assets.length; i++) {
-      const ast = assets[i];
-      setBatchPrintProgress({ current: i + 1, total: assets.length, tag: ast.asset_tag });
-      setPrintingAssetId(ast.id);
-      setPrintFeedback({
-        id: ast.id,
-        success: true,
-        msg: `Imprimiendo etiqueta ${i + 1} de ${assets.length}: ${ast.asset_tag} (${ast.brand} ${ast.model})...`,
-      });
-      try {
-        await api.printBrotherLabel(ast.id);
-        okCount++;
-      } catch (err) {
-        failedTags.push(ast.asset_tag);
-      }
-    }
-
-    setPrintingAssetId(null);
-    setBatchPrintProgress(null);
-
-    if (failedTags.length === 0) {
+    try {
+      setBatchPrintProgress({ current: 1, total: assets.length, tag: 'Lote' });
       setPrintFeedback({
         id: 'batch',
         success: true,
-        msg: `Cola finalizada: se imprimieron ${okCount} de ${assets.length} etiquetas en Brother PT-D410.`,
+        msg: `Enviando lote de ${assets.length} etiquetas en una sola tira continua a Brother PT-D410...`,
       });
-    } else {
+      const res = await api.printBrotherBatch(assets.map((a) => a.id));
+      setPrintFeedback({
+        id: 'batch',
+        success: true,
+        msg: `Lote enviado: ${res.count || assets.length} etiquetas impresas juntas en ${res.printer || 'Brother PT-D410'}. Ya puedes cortar la tira al terminar.`,
+      });
+    } catch (err: any) {
       setPrintFeedback({
         id: 'batch',
         success: false,
-        msg: `Impresión parcial: ${okCount} correctas, fallaron ${failedTags.join(', ')}.`,
+        msg: `Error al imprimir lote: ${err.message}`,
       });
+    } finally {
+      setBatchPrintProgress(null);
+      setTimeout(() => setPrintFeedback(null), 7000);
     }
-    setTimeout(() => setPrintFeedback(null), 7000);
   };
 
   useEffect(() => {

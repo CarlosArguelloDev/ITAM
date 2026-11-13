@@ -85,6 +85,11 @@ export const api = {
       `/assets/${assetId}/print-brother`,
       { method: 'POST' }
     ),
+  printBrotherBatch: (assetIds: string[]) =>
+    fetchJSON<{ status: string; message: string; printer: string; count: number }>(
+      `/assets/print-brother-batch`,
+      { method: 'POST', body: JSON.stringify({ asset_ids: assetIds }) }
+    ),
 
   // Asignaciones & Swap
   assignAsset: (data: { asset_id: string; user_id: string; parent_asset_id?: string; location?: string; notes?: string }) =>

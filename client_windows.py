@@ -5,6 +5,7 @@ import re
 import socketserver
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -14,6 +15,93 @@ LOCAL_PORT = int(os.environ.get("PORT", "8080"))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 PRINT_ROUTE_RE = re.compile(r"^/api/assets/([^/]+)/print-brother(?:\?.*)?$")
+PRINT_BATCH_RE = re.compile(r"^/api/assets/print-brother-batch(?:\?.*)?$")
+
+
+def build_label_fields(asset):
+    brand = (asset.get("brand") or "").strip()
+    model = (asset.get("model") or "").strip()
+    category = (asset.get("category") or "").strip()
+    asset_tag = (asset.get("asset_tag") or "").strip()
+    serial = (asset.get("serial_number") or "").strip()
+
+    brand_model = f"{brand} {model}".strip() or category
+    if not serial or serial.upper() in ("NO LEGIBLE", "NA", "N/A"):
+        barcode_value = asset_tag
+    else:
+        barcode_value = serial
+
+    return {
+        "brandModel": brand_model,
+        "assetTag": asset_tag,
+        "barcodeValue": barcode_value,
+    }
+
+
+def handle_local_brother_batch(handler, body_bytes):
+    tmp_path = None
+    try:
+        parsed = urllib.parse.urlparse(handler.path)
+        qs = urllib.parse.parse_qs(parsed.query)
+        printer_name = qs.get("printer", ["Brother PT-D410"])[0]
+
+        payload = json.loads((body_bytes or b"{}").decode("utf-8"))
+        asset_ids = payload.get("asset_ids") or []
+        if not asset_ids:
+            send_json(handler, 400, {"error": "Lista asset_ids requerida"})
+            return
+
+        labels = []
+        for aid in asset_ids:
+            asset_url = f"{REMOTE_URL}/api/assets/{urllib.parse.quote(str(aid))}"
+            with urllib.request.urlopen(asset_url, timeout=10) as resp:
+                asset = json.loads(resp.read().decode("utf-8"))
+                labels.append(build_label_fields(asset))
+
+        script_path = os.path.join(BASE_DIR, "scripts", "print_label.ps1")
+        template_path = os.path.join(BASE_DIR, "templates", "etiqueta.lbx")
+
+        if not os.path.exists(script_path):
+            send_json(handler, 500, {"error": "Script scripts/print_label.ps1 no encontrado."})
+            return
+        if not os.path.exists(template_path):
+            send_json(handler, 404, {"error": "Plantilla templates/etiqueta.lbx no encontrada."})
+            return
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8", delete=False) as tf:
+            json.dump(labels, tf, ensure_ascii=False)
+            tmp_path = tf.name
+
+        cmd = [
+            "powershell",
+            "-ExecutionPolicy", "Bypass",
+            "-File", script_path,
+            "-templatePath", template_path,
+            "-printerName", printer_name,
+            "-batchFile", tmp_path,
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        output = (proc.stdout + "\n" + proc.stderr).strip()
+
+        if proc.returncode != 0:
+            send_json(handler, 500, {"error": f"Error al imprimir lote con b-PAC: {output}"})
+            return
+
+        send_json(handler, 200, {
+            "status": "ok",
+            "message": f"Lote de {len(labels)} etiquetas enviado a {printer_name}",
+            "printer": printer_name,
+            "count": len(labels),
+            "details": output,
+        })
+    except Exception as e:
+        send_json(handler, 500, {"error": str(e)})
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
 
 
 def handle_local_brother_print(handler, asset_id):
@@ -26,17 +114,10 @@ def handle_local_brother_print(handler, asset_id):
         with urllib.request.urlopen(asset_url, timeout=10) as resp:
             asset = json.loads(resp.read().decode("utf-8"))
 
-        brand = (asset.get("brand") or "").strip()
-        model = (asset.get("model") or "").strip()
-        category = (asset.get("category") or "").strip()
-        asset_tag = (asset.get("asset_tag") or "").strip()
-        serial = (asset.get("serial_number") or "").strip()
-
-        brand_model = f"{brand} {model}".strip() or category
-        if not serial or serial.upper() in ("NO LEGIBLE", "NA", "N/A"):
-            barcode_value = asset_tag
-        else:
-            barcode_value = serial
+        fields = build_label_fields(asset)
+        brand_model = fields["brandModel"]
+        asset_tag = fields["assetTag"]
+        barcode_value = fields["barcodeValue"]
 
         script_path = os.path.join(BASE_DIR, "scripts", "print_label.ps1")
         template_path = os.path.join(BASE_DIR, "templates", "etiqueta.lbx")
@@ -94,15 +175,19 @@ class SatelliteProxyHandler(http.server.BaseHTTPRequestHandler):
         print(f"[ITAM-CLIENT] {self.address_string()} - {format % args}")
 
     def _proxy(self):
+        content_len = int(self.headers.get("Content-Length", "0") or "0")
+        body = self.rfile.read(content_len) if content_len > 0 else None
+
         if self.command == "POST":
+            if PRINT_BATCH_RE.match(self.path):
+                handle_local_brother_batch(self, body)
+                return
             m = PRINT_ROUTE_RE.match(self.path)
             if m:
                 handle_local_brother_print(self, urllib.parse.unquote(m.group(1)))
                 return
 
         target_url = f"{REMOTE_URL}{self.path}"
-        content_len = int(self.headers.get("Content-Length", "0") or "0")
-        body = self.rfile.read(content_len) if content_len > 0 else None
 
         req_headers = {}
         for k, v in self.headers.items():

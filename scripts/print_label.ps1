@@ -3,7 +3,8 @@ param(
     [string]$printerName = "Brother PT-D410",
     [string]$brandModel = "DELL LATITUDE 5440",
     [string]$assetTag = "IT-LAP-0010",
-    [string]$barcodeValue = ""
+    [string]$barcodeValue = "",
+    [string]$batchFile = ""
 )
 
 if (-not $barcodeValue -or $barcodeValue.Trim() -eq "") {
@@ -29,39 +30,51 @@ if (-not $opened) {
     exit 4
 }
 
+function Set-LabelFields {
+    param($doc, [string]$bm, [string]$tag, [string]$bc)
+    if (-not $bc -or $bc.Trim() -eq "") { $bc = $tag }
+
+    $barcodeObj = $doc.GetObject("Barcode")
+    if ($barcodeObj) { $barcodeObj.Text = $bc }
+
+    $brandObj = $doc.GetObject("txtBrandModel")
+    if (-not $brandObj) { $brandObj = $doc.GetObject("txtModelBrand") }
+    if ($brandObj) { $brandObj.Text = $bm.ToUpper() }
+
+    $tagObj = $doc.GetObject("txtAssetTag")
+    if ($tagObj) { $tagObj.Text = $tag }
+}
+
 try {
     if ($printerName) {
         [void]$doc.SetPrinter($printerName, $false)
     }
 
-    # 1. Objeto Código de Barras (Número de serie, o Tag si no hay serial)
-    $barcodeObj = $doc.GetObject("Barcode")
-    if ($barcodeObj) {
-        $barcodeObj.Text = $barcodeValue
-    }
+    if ($batchFile -and (Test-Path $batchFile)) {
+        $items = Get-Content $batchFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($items -isnot [System.Array]) { $items = @($items) }
 
-    # 2. Objeto Marca y Modelo
-    $brandObj = $doc.GetObject("txtBrandModel")
-    if (-not $brandObj) {
-        $brandObj = $doc.GetObject("txtModelBrand")
-    }
-    if ($brandObj) {
-        $brandObj.Text = $brandModel.ToUpper()
-    }
+        # Imprimir todo el lote en un solo trabajo continuo (sin pausa ni espacio extra entre etiquetas)
+        [void]$doc.StartPrint("ITAM-BATCH", 0)
+        foreach ($item in $items) {
+            Set-LabelFields -doc $doc -bm $item.brandModel -tag $item.assetTag -bc $item.barcodeValue
+            [void]$doc.PrintOut(1, 0)
+        }
+        [void]$doc.EndPrint()
 
-    # 3. Objeto Tag de Activo
-    $tagObj = $doc.GetObject("txtAssetTag")
-    if ($tagObj) {
-        $tagObj.Text = $assetTag
+        Write-Host "PRINT_SUCCESS: Lote de $($items.Count) etiquetas enviado en un solo trabajo a $printerName"
+        exit 0
+    } else {
+        Set-LabelFields -doc $doc -bm $brandModel -tag $assetTag -bc $barcodeValue
+
+        # Imprimir individual
+        [void]$doc.StartPrint("ITAM-$assetTag", 0)
+        [void]$doc.PrintOut(1, 0)
+        [void]$doc.EndPrint()
+
+        Write-Host "PRINT_SUCCESS: Etiqueta de $assetTag enviada a $printerName"
+        exit 0
     }
-
-    # Imprimir
-    [void]$doc.StartPrint("ITAM-$assetTag", 0)
-    [void]$doc.PrintOut(1, 0)
-    [void]$doc.EndPrint()
-
-    Write-Host "PRINT_SUCCESS: Etiqueta de $assetTag enviada a $printerName"
-    exit 0
 } catch {
     Write-Error "Error de impresión: $($_.Exception.Message)"
     exit 5
