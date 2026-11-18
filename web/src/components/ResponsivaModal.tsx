@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Printer,
@@ -59,6 +60,13 @@ export const ResponsivaModal: React.FC<ResponsivaModalProps> = ({
   useEffect(() => {
     loadResponsivaData();
   }, [userId]);
+
+  useEffect(() => {
+    document.body.classList.add('printing-responsiva');
+    return () => {
+      document.body.classList.remove('printing-responsiva');
+    };
+  }, []);
 
   const loadResponsivaData = async () => {
     try {
@@ -158,11 +166,11 @@ export const ResponsivaModal: React.FC<ResponsivaModalProps> = ({
   const month = monthNames[today.getMonth()];
   const year = today.getFullYear();
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-4xl max-h-[94vh] flex flex-col my-auto overflow-hidden animate-in fade-in duration-200">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto print:static print:inset-auto print:bg-white print:p-0 print:block print:overflow-visible">
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-4xl max-h-[94vh] flex flex-col my-auto overflow-hidden animate-in fade-in duration-200 print:max-w-none print:max-h-none print:w-full print:border-0 print:shadow-none print:rounded-none print:overflow-visible print:block">
         {/* Header Modal con Selector de Formato */}
-        <div className="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50">
+        <div className="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 print:hidden">
           <div>
             <h3 className="text-sm font-bold text-slate-900">
               Formato de Responsiva — Optibelt de México S. de R.L. de C.V.
@@ -207,7 +215,7 @@ export const ResponsivaModal: React.FC<ResponsivaModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="p-6 overflow-y-auto flex-1 space-y-6 bg-slate-100/70 print:p-0 print:bg-white print:overflow-visible print:block">
           {loading && (
             <div className="text-center py-12 text-slate-500 text-sm">
               Cargando datos del colaborador y equipos...
@@ -222,16 +230,36 @@ export const ResponsivaModal: React.FC<ResponsivaModalProps> = ({
           )}
 
           {data && (
-            <div id="printable-content" className="bg-white p-6 sm:p-8 border border-slate-200 rounded-xl font-serif text-slate-900 leading-relaxed shadow-sm text-sm space-y-6">
+            <div
+              id="printable-content"
+              className="bg-white max-w-[816px] w-full mx-auto min-h-[1056px] p-10 sm:p-12 border border-slate-300 rounded-sm font-serif text-slate-900 leading-relaxed shadow-md text-sm flex flex-col justify-between print:max-w-none print:min-h-[250mm] print:p-0 print:border-0 print:shadow-none print:rounded-none"
+            >
+              <div>
+                {/* Membrete Oficial Optibelt */}
+                <div className="flex items-center justify-between gap-4 border-b-2 border-slate-800 pb-4 mb-6">
+                  <img
+                    src="/optibelt-logo.webp"
+                    alt="Optibelt"
+                    className="h-12 w-auto object-contain"
+                  />
+                  <div className="text-right font-sans">
+                    <div className="text-xs font-extrabold uppercase tracking-wider text-slate-900">
+                      Optibelt de México S. de R.L. de C.V.
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-medium">
+                      Control de Activos de TI
+                    </div>
+                    <div className="text-xs text-slate-700 mt-1">
+                      San Juan del Río, Qro., a <strong>{day}</strong> de <strong>{month}</strong> del <strong>{year}</strong>
+                    </div>
+                  </div>
+                </div>
+
               {/* ============================================================== */}
               {/* FORMATO 1: RESPONSIVA DEL EQUIPO DE TRABAJO (ASIGNACIÓN)       */}
               {/* ============================================================== */}
               {formatType === 'ASIGNACION' ? (
                 <>
-                  <div className="text-right text-xs font-sans text-slate-600 mb-6">
-                    San Juan del Río, Qro., a <strong>{day}</strong> de <strong>{month}</strong> del <strong>{year}</strong>
-                  </div>
-
                   <div className="text-center font-bold text-base uppercase tracking-wider mb-6">
                     RESPONSIVA DEL EQUIPO DE TRABAJO
                   </div>
@@ -241,7 +269,7 @@ export const ResponsivaModal: React.FC<ResponsivaModalProps> = ({
                   </p>
 
                   {/* Tabla de Equipos Asignados */}
-                  <div className="my-6 overflow-x-auto">
+                  <div className="my-6 overflow-x-auto print:overflow-visible">
                     <table className="w-full text-left border-collapse border border-slate-900 text-xs font-sans">
                       <thead>
                         <tr className="bg-slate-100 border-b border-slate-900 font-bold uppercase text-[11px]">
@@ -260,24 +288,27 @@ export const ResponsivaModal: React.FC<ResponsivaModalProps> = ({
                                 type="text"
                                 value={row.device}
                                 onChange={(e) => handleDeviceChange(idx, 'device', e.target.value)}
-                                className="w-full bg-transparent border-0 focus:ring-1 focus:ring-sky-500 rounded p-1 font-sans text-xs"
+                                className="w-full bg-transparent border-0 focus:ring-1 focus:ring-sky-500 rounded p-1 font-sans text-xs print:hidden"
                               />
+                              <span className="hidden print:inline font-sans text-xs">{row.device}</span>
                             </td>
                             <td className="border border-slate-900 p-2 font-mono">
                               <input
                                 type="text"
                                 value={row.serialNumber}
                                 onChange={(e) => handleDeviceChange(idx, 'serialNumber', e.target.value)}
-                                className="w-full bg-transparent border-0 focus:ring-1 focus:ring-sky-500 rounded p-1 font-mono text-xs"
+                                className="w-full bg-transparent border-0 focus:ring-1 focus:ring-sky-500 rounded p-1 font-mono text-xs print:hidden"
                               />
+                              <span className="hidden print:inline font-mono text-xs">{row.serialNumber}</span>
                             </td>
                             <td className="border border-slate-900 p-2 uppercase">
                               <input
                                 type="text"
                                 value={row.condition}
                                 onChange={(e) => handleDeviceChange(idx, 'condition', e.target.value)}
-                                className="w-full bg-transparent border-0 focus:ring-1 focus:ring-sky-500 rounded p-1 font-sans text-xs font-semibold"
+                                className="w-full bg-transparent border-0 focus:ring-1 focus:ring-sky-500 rounded p-1 font-sans text-xs font-semibold print:hidden"
                               />
+                              <span className="hidden print:inline font-sans text-xs font-semibold uppercase">{row.condition}</span>
                             </td>
                             <td className="border border-slate-900 p-2 text-slate-600">
                               <input
@@ -285,8 +316,9 @@ export const ResponsivaModal: React.FC<ResponsivaModalProps> = ({
                                 value={row.observations}
                                 onChange={(e) => handleDeviceChange(idx, 'observations', e.target.value)}
                                 placeholder="Notas opcionales"
-                                className="w-full bg-transparent border-0 focus:ring-1 focus:ring-sky-500 rounded p-1 font-sans text-xs"
+                                className="w-full bg-transparent border-0 focus:ring-1 focus:ring-sky-500 rounded p-1 font-sans text-xs print:hidden"
                               />
+                              <span className="hidden print:inline font-sans text-xs text-slate-700">{row.observations}</span>
                             </td>
                             <td className="border border-slate-900 p-1 text-center print:hidden">
                               <button
@@ -320,28 +352,19 @@ export const ResponsivaModal: React.FC<ResponsivaModalProps> = ({
                       value={jobTitle}
                       onChange={(e) => setJobTitle(e.target.value)}
                       placeholder="Puesto del colaborador"
-                      className="border-b border-slate-900 px-1 font-bold text-center focus:outline-none font-sans text-xs sm:text-sm inline-block"
+                      className="border-b border-slate-900 px-1 font-bold text-center focus:outline-none font-sans text-xs sm:text-sm inline-block print:hidden"
                     />
+                    <span className="hidden print:inline border-b border-slate-900 px-1 font-bold font-sans text-xs sm:text-sm">
+                      {jobTitle || 'Colaborador'}
+                    </span>
                     . En caso contrario, si esto resulta en algún daño al equipo, acepto pagar la reparación de la avería, así como reemplazar el equipo en caso de pérdida. Esta respuesta servirá como aceptación del pago, ya sea de forma directa o mediante deducción salarial en caso de separación del trabajo.
                   </p>
-
-                  {/* Firma */}
-                  <div className="pt-16 pb-4 text-center max-w-xs mx-auto">
-                    <div className="border-b border-slate-900 mb-2"></div>
-                    <p className="font-bold text-xs font-sans uppercase">{data.employee.full_name}</p>
-                    <p className="text-xs font-sans text-slate-500">Nombre y Firma</p>
-                    <p className="text-[11px] font-mono text-slate-400">ID: {data.employee.employee_code}</p>
-                  </div>
                 </>
               ) : (
                 /* ============================================================== */
                 /* FORMATO 2: CAMBIO Y ASIGNACIÓN DE LAPTOP (SWAP)                */
                 /* ============================================================== */
                 <>
-                  <div className="text-right text-xs font-sans text-slate-600 mb-6">
-                    San Juan del Rio, Qro. <strong>{day} de {month}</strong>, <strong>{year}</strong>
-                  </div>
-
                   <div className="text-center font-bold text-base uppercase tracking-wider mb-6">
                     Cambio y Asignación de Laptop
                   </div>
@@ -353,30 +376,42 @@ export const ResponsivaModal: React.FC<ResponsivaModalProps> = ({
                       value={jobTitle}
                       onChange={(e) => setJobTitle(e.target.value)}
                       placeholder="Puesto / Departamento"
-                      className="border-b border-slate-900 px-1 font-semibold text-center focus:outline-none font-sans text-xs sm:text-sm inline-block"
+                      className="border-b border-slate-900 px-1 font-semibold text-center focus:outline-none font-sans text-xs sm:text-sm inline-block print:hidden"
                     />
+                    <span className="hidden print:inline border-b border-slate-900 px-1 font-semibold font-sans text-xs sm:text-sm">
+                      {jobTitle || 'Colaborador'}
+                    </span>
                     , entrego formalmente el equipo de marca{' '}
                     <input
                       type="text"
                       value={oldBrand}
                       onChange={(e) => setOldBrand(e.target.value)}
-                      className="border-b border-slate-900 px-1 font-semibold text-center focus:outline-none font-sans text-xs sm:text-sm inline-block w-24"
+                      className="border-b border-slate-900 px-1 font-semibold text-center focus:outline-none font-sans text-xs sm:text-sm inline-block w-24 print:hidden"
                     />
+                    <span className="hidden print:inline border-b border-slate-900 px-1 font-semibold font-sans text-xs sm:text-sm">
+                      {oldBrand}
+                    </span>
                     , modelo{' '}
                     <input
                       type="text"
                       value={oldModel}
                       onChange={(e) => setOldModel(e.target.value)}
-                      className="border-b border-slate-900 px-1 font-semibold text-center focus:outline-none font-sans text-xs sm:text-sm inline-block w-32"
+                      className="border-b border-slate-900 px-1 font-semibold text-center focus:outline-none font-sans text-xs sm:text-sm inline-block w-32 print:hidden"
                     />
+                    <span className="hidden print:inline border-b border-slate-900 px-1 font-semibold font-sans text-xs sm:text-sm">
+                      {oldModel}
+                    </span>
                     , con el número de serie{' '}
                     <input
                       type="text"
                       value={oldSerial}
                       onChange={(e) => setOldSerial(e.target.value)}
                       placeholder="Serie del equipo anterior"
-                      className="border-b border-slate-900 px-1 font-mono font-semibold text-center focus:outline-none text-xs sm:text-sm inline-block w-36"
+                      className="border-b border-slate-900 px-1 font-mono font-semibold text-center focus:outline-none text-xs sm:text-sm inline-block w-36 print:hidden"
                     />
+                    <span className="hidden print:inline border-b border-slate-900 px-1 font-mono font-semibold text-xs sm:text-sm">
+                      {oldSerial || 'N/A'}
+                    </span>
                     , la cual ha sido propiedad de <strong>Optibelt de Mexico S. de R.L. de C.V.</strong> y se encuentra en buenas condiciones de funcionamiento.
                   </p>
 
@@ -385,52 +420,68 @@ export const ResponsivaModal: React.FC<ResponsivaModalProps> = ({
                   </p>
 
                   {/* Campos del nuevo equipo recibido */}
-                  <div className="bg-slate-50 p-4 rounded-lg border border-slate-300 font-sans text-xs space-y-2 max-w-md mx-auto my-4">
-                    <div className="flex items-center justify-between">
+                  <div className="bg-slate-50 p-4 rounded-lg border border-slate-300 font-sans text-xs space-y-2 max-w-md mx-auto my-6">
+                    <div className="flex items-center justify-between gap-4">
                       <span className="font-bold text-slate-700">Marca:</span>
                       <input
                         type="text"
                         value={newBrand}
                         onChange={(e) => setNewBrand(e.target.value)}
-                        className="bg-white border border-slate-300 rounded px-2 py-1 font-semibold text-right"
+                        className="bg-white border border-slate-300 rounded px-2 py-1 font-semibold text-right print:hidden"
                       />
+                      <span className="hidden print:inline font-semibold text-slate-900">{newBrand}</span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-4">
                       <span className="font-bold text-slate-700">Modelo:</span>
                       <input
                         type="text"
                         value={newModel}
                         onChange={(e) => setNewModel(e.target.value)}
-                        className="bg-white border border-slate-300 rounded px-2 py-1 font-semibold text-right"
+                        className="bg-white border border-slate-300 rounded px-2 py-1 font-semibold text-right print:hidden"
                       />
+                      <span className="hidden print:inline font-semibold text-slate-900">{newModel}</span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-4">
                       <span className="font-bold text-slate-700">Número de serie:</span>
                       <input
                         type="text"
                         value={newSerial}
                         onChange={(e) => setNewSerial(e.target.value)}
-                        className="bg-white border border-slate-300 rounded px-2 py-1 font-mono font-semibold text-right"
+                        className="bg-white border border-slate-300 rounded px-2 py-1 font-mono font-semibold text-right print:hidden"
                       />
+                      <span className="hidden print:inline font-mono font-semibold text-slate-900">{newSerial}</span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-4">
                       <span className="font-bold text-slate-700">Previo Usuario:</span>
                       <input
                         type="text"
                         value={prevUser}
                         onChange={(e) => setPrevUser(e.target.value)}
                         placeholder="Ej. Stock de IT o Nombre previo"
-                        className="bg-white border border-slate-300 rounded px-2 py-1 text-right"
+                        className="bg-white border border-slate-300 rounded px-2 py-1 text-right print:hidden"
                       />
+                      <span className="hidden print:inline text-slate-900">{prevUser}</span>
                     </div>
                   </div>
 
                   <p className="text-justify text-xs sm:text-sm mt-4">
                     Esta solicitud de intercambio se realiza de acuerdo con los términos acordados previamente entre ambas partes y con el objetivo de mantener actualizado el inventario de activos tecnológicos de nuestra institución.
                   </p>
+                </>
+              )}
+              </div>
 
-                  {/* Firmas duales */}
-                  <div className="grid grid-cols-2 gap-8 pt-16 pb-4 font-sans text-center">
+              {/* Bloque inferior de firmas anclado al pie de la hoja */}
+              <div className="pt-16 pb-2">
+                {formatType === 'ASIGNACION' ? (
+                  <div className="text-center max-w-xs mx-auto">
+                    <div className="border-b border-slate-900 mb-2"></div>
+                    <p className="font-bold text-xs font-sans uppercase">{data.employee.full_name}</p>
+                    <p className="text-xs font-sans text-slate-500">Nombre y Firma</p>
+                    <p className="text-[11px] font-mono text-slate-400">ID: {data.employee.employee_code}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-10 font-sans text-center">
                     <div>
                       <div className="border-b border-slate-900 mb-2"></div>
                       <p className="text-xs font-bold text-slate-900">Nombre y Firma responsable de IT</p>
@@ -443,8 +494,13 @@ export const ResponsivaModal: React.FC<ResponsivaModalProps> = ({
                       <p className="text-[10px] font-mono text-slate-400">ID: {data.employee.employee_code}</p>
                     </div>
                   </div>
-                </>
-              )}
+                )}
+
+                <div className="mt-8 pt-3 border-t border-slate-200 flex items-center justify-between text-[10px] font-sans text-slate-400">
+                  <span>Optibelt de México S. de R.L. de C.V.</span>
+                  <span>Formato de Custodia de Activos de TI</span>
+                </div>
+              </div>
             </div>
           )}
 
@@ -515,6 +571,7 @@ export const ResponsivaModal: React.FC<ResponsivaModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

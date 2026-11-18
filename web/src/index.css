@@ -39,17 +39,24 @@
   border: 2px solid #FFFFFF !important;
 }
 
+@page {
+  size: letter portrait;
+  margin: 12mm 14mm;
+}
+
 @media print {
-  body * {
-    visibility: hidden;
+  html,
+  body {
+    background: #ffffff !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  #printable-content, #printable-content * {
-    visibility: visible;
-  }
-  #printable-content {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+
+  body.printing-responsiva > #root {
+    display: none !important;
   }
 }
