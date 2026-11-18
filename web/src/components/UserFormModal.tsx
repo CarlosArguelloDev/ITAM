@@ -4,16 +4,18 @@ import { User, Department, LocationType } from '../types';
 import { api } from '../api';
 
 interface UserFormModalProps {
+  userToEdit?: User | null;
   onClose: () => void;
   onUserSaved: (user: User) => void;
 }
 
-export const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onUserSaved }) => {
-  const [employeeCode, setEmployeeCode] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [department, setDepartment] = useState('LOGISTICS');
-  const [location, setLocation] = useState<LocationType>('OPM');
+export const UserFormModal: React.FC<UserFormModalProps> = ({ userToEdit, onClose, onUserSaved }) => {
+  const [employeeCode, setEmployeeCode] = useState(userToEdit?.employee_code || '');
+  const [fullName, setFullName] = useState(userToEdit?.full_name || '');
+  const [email, setEmail] = useState(userToEdit?.email || '');
+  const [department, setDepartment] = useState(userToEdit?.department || 'LOGISTICS');
+  const [location, setLocation] = useState<LocationType>(userToEdit?.location || 'OPM');
+  const [isActive, setIsActive] = useState(userToEdit ? userToEdit.is_active : true);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +24,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onUserSav
     api.getDepartments()
       .then(res => {
         setDepartments(res);
-        if (res.length > 0 && !res.some(d => d.name === department)) {
+        if (!userToEdit && res.length > 0 && !res.some(d => d.name === department)) {
           setDepartment(res[0].name);
         }
       })
@@ -40,16 +42,20 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onUserSav
       setSaving(true);
       setError(null);
 
-      const newUser = await api.createUser({
+      const payload = {
         employee_code: employeeCode.trim().toUpperCase(),
         full_name: fullName.trim(),
         email: email.trim() || `${employeeCode.trim().toLowerCase()}@optibelt.com`,
         department: department.trim(),
         location,
-        is_active: true,
-      });
+        is_active: isActive,
+      };
 
-      onUserSaved(newUser);
+      const savedUser = userToEdit
+        ? await api.updateUser(userToEdit.id, payload)
+        : await api.createUser(payload);
+
+      onUserSaved(savedUser);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Error al guardar el colaborador.');
@@ -68,8 +74,12 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onUserSav
               <UserIcon className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Alta de Nuevo Colaborador</h3>
-              <p className="text-xs text-slate-500">Registra un empleado para asignación y custodia de hardware</p>
+              <h3 className="text-sm font-bold text-slate-900">
+                {userToEdit ? 'Editar Colaborador' : 'Alta de Nuevo Colaborador'}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {userToEdit ? 'Actualiza los datos del colaborador y su ubicación' : 'Registra un empleado para asignación y custodia de hardware'}
+              </p>
             </div>
           </div>
           <button
@@ -143,6 +153,9 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onUserSav
                   onChange={(e) => setDepartment(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500"
                 >
+                  {department && !departments.some(d => d.name === department) && (
+                    <option value={department}>{department}</option>
+                  )}
                   {departments.map((d) => (
                     <option key={d.id} value={d.name}>{d.name}</option>
                   ))}
@@ -173,6 +186,18 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onUserSav
             </div>
           </div>
 
+          {userToEdit && (
+            <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+              />
+              <span className="font-semibold text-slate-700">Colaborador activo</span>
+            </label>
+          )}
+
           {/* Footer Actions */}
           <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
             <button
@@ -188,7 +213,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ onClose, onUserSav
               className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white font-bold px-5 py-2 rounded-xl shadow-sm transition disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              <span>{saving ? 'Guardando...' : 'Crear Colaborador'}</span>
+              <span>{saving ? 'Guardando...' : userToEdit ? 'Guardar Cambios' : 'Crear Colaborador'}</span>
             </button>
           </div>
         </form>

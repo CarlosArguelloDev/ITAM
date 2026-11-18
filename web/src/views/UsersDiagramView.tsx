@@ -198,8 +198,9 @@ export const UsersDiagramView: React.FC = () => {
   const [selectedLocation, setSelectedLocation] = useState<string>('ALL');
   const [custodyFilter, setCustodyFilter] = useState<'ALL' | 'WITH_ASSETS' | 'WITHOUT_ASSETS'>('ALL');
 
-  // Modal para crear usuario
+  // Modal para crear / editar usuario
   const [userModalOpen, setUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   // Modal para auditoría rápida dirigida al usuario
   const [auditTargetUser, setAuditTargetUser] = useState<User | null>(null);
@@ -694,6 +695,18 @@ export const UsersDiagramView: React.FC = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
+                              setEditingUser(u);
+                            }}
+                            className="inline-flex items-center gap-1.5 bg-white hover:bg-amber-50 text-amber-700 border border-amber-300 font-bold text-xs px-2.5 py-1.5 rounded-lg shadow-xs transition"
+                            title="Editar datos del colaborador"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Editar</span>
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setAssignTargetUser(u);
                             }}
                             className="inline-flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg shadow-xs transition"
@@ -732,13 +745,19 @@ export const UsersDiagramView: React.FC = () => {
           </div>
         </div>
 
-        {/* Modal Alta de Colaborador */}
-        {userModalOpen && (
+        {/* Modal Alta / Edición de Colaborador */}
+        {(userModalOpen || editingUser) && (
           <UserFormModal
-            onClose={() => setUserModalOpen(false)}
-            onUserSaved={(newUser) => {
+            userToEdit={editingUser}
+            onClose={() => {
+              setUserModalOpen(false);
+              setEditingUser(null);
+            }}
+            onUserSaved={(savedUser) => {
               loadUsers();
-              setSelectedUserId(newUser.id);
+              if (!editingUser) {
+                setSelectedUserId(savedUser.id);
+              }
             }}
           />
         )}
@@ -805,6 +824,17 @@ export const UsersDiagramView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {currentUser && (
+            <button
+              onClick={() => setEditingUser(currentUser)}
+              className="flex items-center gap-1.5 bg-white hover:bg-amber-50 text-amber-700 border border-amber-300 font-bold text-xs px-3.5 py-1.5 rounded-xl shadow-xs transition"
+              title="Editar datos del colaborador"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Editar</span>
+            </button>
+          )}
+
           {currentUser && (
             <button
               onClick={() => setAuditTargetUser(currentUser)}
@@ -1384,6 +1414,19 @@ export const UsersDiagramView: React.FC = () => {
           onClose={() => setEditingAsset(null)}
           onSuccess={() => {
             setEditingAsset(null);
+            if (selectedUserId) loadUserDetails(selectedUserId);
+            loadUsers();
+          }}
+        />
+      )}
+
+      {/* Modal Edición de Colaborador */}
+      {editingUser && (
+        <UserFormModal
+          userToEdit={editingUser}
+          onClose={() => setEditingUser(null)}
+          onUserSaved={() => {
+            setEditingUser(null);
             if (selectedUserId) loadUserDetails(selectedUserId);
             loadUsers();
           }}
