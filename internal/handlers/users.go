@@ -19,7 +19,7 @@ func (h *AppHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	activeOnly := r.URL.Query().Get("active") == "true"
 
 	query := `
-		SELECT u.id, u.employee_code, u.full_name, u.email, u.department, u.location, u.is_active, u.created_at,
+		SELECT u.id, u.employee_code, u.full_name, u.email, u.department, COALESCE(u.position, ''), u.location, u.is_active, u.created_at,
 		       (SELECT COUNT(*) FROM assets WHERE assigned_to_user_id = u.id AND status != 'RETIRED') AS assets_count,
 		       (SELECT COUNT(*) FROM assets WHERE assigned_to_user_id = u.id AND category = 'LAPTOP' AND status != 'RETIRED') AS laptops_count,
 		       (SELECT COUNT(*) FROM assets WHERE assigned_to_user_id = u.id AND category = 'MONITOR' AND status != 'RETIRED') AS monitors_count,
@@ -31,9 +31,9 @@ func (h *AppHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	args := []interface{}{}
 
 	if search != "" {
-		query += " AND (u.full_name LIKE ? OR u.employee_code LIKE ? OR u.email LIKE ?)"
+		query += " AND (u.full_name LIKE ? OR u.employee_code LIKE ? OR u.email LIKE ? OR COALESCE(u.position, '') LIKE ?)"
 		pattern := "%" + search + "%"
-		args = append(args, pattern, pattern, pattern)
+		args = append(args, pattern, pattern, pattern, pattern)
 	}
 
 	if dept != "" {
@@ -61,7 +61,7 @@ func (h *AppHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		var u models.User
 		var isActiveInt int
 		if err := rows.Scan(
-			&u.ID, &u.EmployeeCode, &u.FullName, &u.Email, &u.Department, &u.Location, &isActiveInt, &u.CreatedAt,
+			&u.ID, &u.EmployeeCode, &u.FullName, &u.Email, &u.Department, &u.Position, &u.Location, &isActiveInt, &u.CreatedAt,
 			&u.AssetsCount, &u.LaptopsCount, &u.MonitorsCount, &u.DockingsCount, &u.PeripheralsCount,
 		); err != nil {
 			ErrorResponse(w, http.StatusInternalServerError, "Error al escanear usuario: "+err.Error())
@@ -110,10 +110,10 @@ func (h *AppHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	var u models.User
 	var isActiveInt int
 	err := h.DB.QueryRow(`
-		SELECT id, employee_code, full_name, email, department, location, is_active, created_at
+		SELECT id, employee_code, full_name, email, department, COALESCE(position, ''), location, is_active, created_at
 		FROM users
 		WHERE id = ?
-	`, id).Scan(&u.ID, &u.EmployeeCode, &u.FullName, &u.Email, &u.Department, &u.Location, &isActiveInt, &u.CreatedAt)
+	`, id).Scan(&u.ID, &u.EmployeeCode, &u.FullName, &u.Email, &u.Department, &u.Position, &u.Location, &isActiveInt, &u.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		ErrorResponse(w, http.StatusNotFound, "Usuario no encontrado")
@@ -173,9 +173,9 @@ func (h *AppHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	newID := "usr-" + uuid.New().String()[:8]
 	_, err := h.DB.Exec(`
-		INSERT INTO users (id, employee_code, full_name, email, department, location, is_active)
-		VALUES (?, ?, ?, ?, ?, ?, 1)
-	`, newID, req.EmployeeCode, req.FullName, req.Email, req.Department, req.Location)
+		INSERT INTO users (id, employee_code, full_name, email, department, position, location, is_active)
+		VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+	`, newID, req.EmployeeCode, req.FullName, req.Email, req.Department, req.Position, req.Location)
 
 	if err != nil {
 		ErrorResponse(w, http.StatusConflict, "Error al crear usuario (verifique que el código no esté duplicado): "+err.Error())
@@ -202,9 +202,9 @@ func (h *AppHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.DB.Exec(`
 		UPDATE users
-		SET employee_code = ?, full_name = ?, email = ?, department = ?, location = ?, is_active = ?
+		SET employee_code = ?, full_name = ?, email = ?, department = ?, position = ?, location = ?, is_active = ?
 		WHERE id = ?
-	`, req.EmployeeCode, req.FullName, req.Email, req.Department, req.Location, activeInt, id)
+	`, req.EmployeeCode, req.FullName, req.Email, req.Department, req.Position, req.Location, activeInt, id)
 
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error al actualizar usuario: "+err.Error())
@@ -262,10 +262,10 @@ func (h *AppHandler) GetUserDiagram(w http.ResponseWriter, r *http.Request) {
 	var u models.User
 	var isActiveInt int
 	err := h.DB.QueryRow(`
-		SELECT id, employee_code, full_name, email, department, location, is_active, created_at
+		SELECT id, employee_code, full_name, email, department, COALESCE(position, ''), location, is_active, created_at
 		FROM users
 		WHERE id = ?
-	`, id).Scan(&u.ID, &u.EmployeeCode, &u.FullName, &u.Email, &u.Department, &u.Location, &isActiveInt, &u.CreatedAt)
+	`, id).Scan(&u.ID, &u.EmployeeCode, &u.FullName, &u.Email, &u.Department, &u.Position, &u.Location, &isActiveInt, &u.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		ErrorResponse(w, http.StatusNotFound, "Usuario no encontrado")
@@ -571,10 +571,10 @@ func (h *AppHandler) GetUserByID(w http.ResponseWriter, id string, statusCode in
 	var u models.User
 	var isActiveInt int
 	err := h.DB.QueryRow(`
-		SELECT id, employee_code, full_name, email, department, location, is_active, created_at
+		SELECT id, employee_code, full_name, email, department, COALESCE(position, ''), location, is_active, created_at
 		FROM users
 		WHERE id = ?
-	`, id).Scan(&u.ID, &u.EmployeeCode, &u.FullName, &u.Email, &u.Department, &u.Location, &isActiveInt, &u.CreatedAt)
+	`, id).Scan(&u.ID, &u.EmployeeCode, &u.FullName, &u.Email, &u.Department, &u.Position, &u.Location, &isActiveInt, &u.CreatedAt)
 
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error: "+err.Error())

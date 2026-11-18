@@ -579,6 +579,9 @@ export const UsersDiagramView: React.FC = () => {
                       {/* Área y Sede */}
                       <td className="py-3.5 px-4">
                         <span className="font-semibold text-slate-800 block">{u.department}</span>
+                        {u.position && (
+                          <span className="text-[11px] text-slate-600 block">{u.position}</span>
+                        )}
                         <span className="text-[11px] text-slate-500">{u.location}</span>
                       </td>
 
@@ -877,7 +880,9 @@ export const UsersDiagramView: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
-                    {currentUser.email} • {currentUser.department} • Sede: <strong>{currentUser.location}</strong>
+                    {currentUser.email}
+                    {currentUser.position ? ` • ${currentUser.position}` : ''} • {currentUser.department} • Sede:{' '}
+                    <strong>{currentUser.location}</strong>
                   </p>
                 </div>
               </div>

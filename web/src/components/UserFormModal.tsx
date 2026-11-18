@@ -14,6 +14,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ userToEdit, onClos
   const [fullName, setFullName] = useState(userToEdit?.full_name || '');
   const [email, setEmail] = useState(userToEdit?.email || '');
   const [department, setDepartment] = useState(userToEdit?.department || 'LOGISTICS');
+  const [position, setPosition] = useState(userToEdit?.position || '');
   const [location, setLocation] = useState<LocationType>(userToEdit?.location || 'OPM');
   const [isActive, setIsActive] = useState(userToEdit ? userToEdit.is_active : true);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -47,6 +48,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ userToEdit, onClos
         full_name: fullName.trim(),
         email: email.trim() || `${employeeCode.trim().toLowerCase()}@optibelt.com`,
         department: department.trim(),
+        position: position.trim(),
         location,
         is_active: isActive,
       };
@@ -129,17 +131,32 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ userToEdit, onClos
             </div>
           </div>
 
-          <div>
-            <label className="font-semibold text-slate-700 block mb-1">
-              Correo Electrónico Corporativo
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ej. mariana.rivera@optibelt.com"
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">
+                Correo Electrónico Corporativo
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="ej. mariana.rivera@optibelt.com"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+            </div>
+
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">
+                Puesto / Cargo
+              </label>
+              <input
+                type="text"
+                value={position}
+                onChange={(e) => setPosition(e.target.value)}
+                placeholder="ej. Coordinador de Logística"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

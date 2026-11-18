@@ -75,7 +75,7 @@ export const ResponsivaModal: React.FC<ResponsivaModalProps> = ({
       const res = await api.getResponsivaData(userId);
       setData(res);
 
-      setJobTitle(res.employee.department || 'Colaborador');
+      setJobTitle(res.employee.position || res.employee.department || 'Colaborador');
 
       // Construir tabla inicial de dispositivos asignados
       const rows: DeviceRow[] = [];

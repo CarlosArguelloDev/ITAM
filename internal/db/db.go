@@ -88,6 +88,7 @@ func runMigrations(db *sql.DB) error {
 		"ALTER TABLE audit_campaigns ADD COLUMN total_missing INTEGER NOT NULL DEFAULT 0;",
 		"ALTER TABLE audit_campaigns ADD COLUMN notes TEXT NULLABLE;",
 		"ALTER TABLE audit_scans ADD COLUMN notes TEXT NULLABLE;",
+		"ALTER TABLE users ADD COLUMN position TEXT NOT NULL DEFAULT '';",
 	}
 	for _, alter := range alters {
 		_, _ = db.Exec(alter)

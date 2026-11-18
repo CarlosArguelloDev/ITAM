@@ -64,6 +64,7 @@ type User struct {
 	FullName         string     `json:"full_name"`
 	Email            string     `json:"email"`
 	Department       string     `json:"department"`
+	Position         string     `json:"position"`
 	Location         string     `json:"location"`
 	IsActive         bool       `json:"is_active"`
 	CreatedAt        time.Time  `json:"created_at"`
@@ -203,6 +204,7 @@ type CreateUserRequest struct {
 	FullName     string `json:"full_name"`
 	Email        string `json:"email"`
 	Department   string `json:"department"`
+	Position     string `json:"position"`
 	Location     string `json:"location"`
 }
 
@@ -211,6 +213,7 @@ type UpdateUserRequest struct {
 	FullName     string `json:"full_name"`
 	Email        string `json:"email"`
 	Department   string `json:"department"`
+	Position     string `json:"position"`
 	Location     string `json:"location"`
 	IsActive     bool   `json:"is_active"`
 }

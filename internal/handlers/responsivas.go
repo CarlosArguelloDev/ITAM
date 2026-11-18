@@ -23,10 +23,10 @@ func (h *AppHandler) GetResponsivaData(w http.ResponseWriter, r *http.Request) {
 	var u models.User
 	var isActiveInt int
 	err := h.DB.QueryRow(`
-		SELECT id, employee_code, full_name, email, department, location, is_active, created_at
+		SELECT id, employee_code, full_name, email, department, COALESCE(position, ''), location, is_active, created_at
 		FROM users
 		WHERE id = ?
-	`, userID).Scan(&u.ID, &u.EmployeeCode, &u.FullName, &u.Email, &u.Department, &u.Location, &isActiveInt, &u.CreatedAt)
+	`, userID).Scan(&u.ID, &u.EmployeeCode, &u.FullName, &u.Email, &u.Department, &u.Position, &u.Location, &isActiveInt, &u.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		ErrorResponse(w, http.StatusNotFound, "Usuario no encontrado")

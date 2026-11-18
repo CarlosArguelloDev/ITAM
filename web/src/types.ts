@@ -53,6 +53,7 @@ export interface User {
   full_name: string;
   email: string;
   department: string;
+  position?: string;
   location: LocationType;
   is_active: boolean;
   created_at: string;
