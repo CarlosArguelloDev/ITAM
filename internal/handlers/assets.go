@@ -439,14 +439,6 @@ func (h *AppHandler) AssignAsset(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Si el activo tiene un usuario asignado, sincronizar departamento automáticamente con el del usuario
-	if req.AssignedToUserID != nil && *req.AssignedToUserID != "" {
-		var userDept string
-		if err := h.DB.QueryRow("SELECT department FROM users WHERE id = ?", *req.AssignedToUserID).Scan(&userDept); err == nil && userDept != "" {
-			req.Department = userDept
-		}
-	}
-
 	tx, err := h.DB.Begin()
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error: "+err.Error())
@@ -540,14 +532,6 @@ func (h *AppHandler) UnassignAsset(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Si el activo tiene un usuario asignado, sincronizar departamento automáticamente con el del usuario
-	if req.AssignedToUserID != nil && *req.AssignedToUserID != "" {
-		var userDept string
-		if err := h.DB.QueryRow("SELECT department FROM users WHERE id = ?", *req.AssignedToUserID).Scan(&userDept); err == nil && userDept != "" {
-			req.Department = userDept
-		}
-	}
-
 	tx, err := h.DB.Begin()
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error: "+err.Error())
@@ -607,14 +591,6 @@ func (h *AppHandler) SwapAsset(w http.ResponseWriter, r *http.Request) {
 
 	if req.OldAssetNextStatus == "" {
 		req.OldAssetNextStatus = models.StatusMaintenance
-	}
-
-	// Si el activo tiene un usuario asignado, sincronizar departamento automáticamente con el del usuario
-	if req.AssignedToUserID != nil && *req.AssignedToUserID != "" {
-		var userDept string
-		if err := h.DB.QueryRow("SELECT department FROM users WHERE id = ?", *req.AssignedToUserID).Scan(&userDept); err == nil && userDept != "" {
-			req.Department = userDept
-		}
 	}
 
 	tx, err := h.DB.Begin()
