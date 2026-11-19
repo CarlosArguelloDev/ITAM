@@ -29,6 +29,7 @@ import {
   WarningCircle as AlertCircle,
 } from '@phosphor-icons/react';
 import { HardwareIcon } from '../components/HardwareIcon';
+import { AssetDataTable } from '../components/AssetDataTable';
 import { api } from '../api';
 import {
   Asset,
@@ -968,89 +969,56 @@ export const DepartmentsView: React.FC = () => {
       {activeTab === 'LIST' && diagramData && (
         <div className="space-y-6">
           {/* Bloque A: Equipos directos en el departamento / bodega */}
-          <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Warehouse className="w-4 h-4 text-sky-600" />
-                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                  Equipos asignados directamente a {diagramData.department} ({diagramData.direct_assets.length})
-                </h4>
-              </div>
-              {printFeedback && (
-                <span
-                  className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${
-                    printFeedback.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
-                  }`}
-                >
-                  {printFeedback.msg}
-                </span>
-              )}
+          {printFeedback && (
+            <div
+              className={`px-4 py-2.5 rounded-xl text-xs font-semibold border ${
+                printFeedback.ok
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-rose-50 text-rose-700 border-rose-200'
+              }`}
+            >
+              {printFeedback.msg}
             </div>
+          )}
 
-            {diagramData.direct_assets.length === 0 ? (
-              <div className="py-8 text-center text-xs text-slate-400 italic">
-                No hay equipos asignados directamente sin persona en {diagramData.department}.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500 bg-slate-50/50">
-                      <th className="py-3 px-5">Tag</th>
-                      <th className="py-3 px-4">Categoría</th>
-                      <th className="py-3 px-4">Marca / Modelo</th>
-                      <th className="py-3 px-4">Serial</th>
-                      <th className="py-3 px-4">Estado</th>
-                      <th className="py-3 px-5 text-right">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {diagramData.direct_assets.map((a) => (
-                      <tr key={a.id} className="hover:bg-slate-50">
-                        <td className="py-3 px-5 font-mono font-bold text-slate-900">{a.asset_tag}</td>
-                        <td className="py-3 px-4 font-semibold text-slate-700">{a.category}</td>
-                        <td className="py-3 px-4 text-slate-800">
-                          {a.brand} {a.model}
-                        </td>
-                        <td className="py-3 px-4 font-mono text-slate-600">{a.serial_number}</td>
-                        <td className="py-3 px-4">
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                            {a.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-5 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => handlePrintBrother(a.id, a.asset_tag)}
-                              disabled={printingId === a.id}
-                              className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200"
-                              title="Imprimir etiqueta Brother"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setEditingAsset(a)}
-                              className="p-1.5 text-amber-700 hover:bg-amber-50 rounded-lg border border-amber-200"
-                              title="Editar equipo"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleUnassignDirectAsset(a)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg border border-red-200"
-                              title="Regresar a stock IT"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          <AssetDataTable
+            title={`Equipos directos en ${diagramData.department}`}
+            assets={diagramData.direct_assets}
+            defaultColumns={['category', 'serial_number', 'status', 'last_audited_at']}
+            emptyMessage={`No hay equipos asignados directamente sin persona en ${diagramData.department}.`}
+            renderActions={(a) => (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handlePrintBrother(a.id, a.asset_tag)}
+                  disabled={printingId === a.id}
+                  aria-label={`Imprimir etiqueta de ${a.asset_tag}`}
+                  className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200"
+                  title="Imprimir etiqueta Brother"
+                >
+                  <Printer weight="duotone" className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingAsset(a)}
+                  aria-label={`Editar ${a.asset_tag}`}
+                  className="p-1.5 text-amber-700 hover:bg-amber-50 rounded-lg border border-amber-200"
+                  title="Editar equipo"
+                >
+                  <Edit3 weight="duotone" className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUnassignDirectAsset(a)}
+                  aria-label={`Regresar ${a.asset_tag} a stock IT`}
+                  className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg border border-rose-200"
+                  title="Regresar a stock IT"
+                >
+                  <Trash2 weight="duotone" className="w-3.5 h-3.5" />
+                </button>
+              </>
             )}
-          </div>
+          />
 
           {/* Bloque B: Colaboradores del departamento y sus equipos */}
           <div className="space-y-4">
