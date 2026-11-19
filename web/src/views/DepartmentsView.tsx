@@ -1028,8 +1028,12 @@ export const DepartmentsView: React.FC = () => {
 
       {/* Pestaña 2: Diagrama React Flow */}
       {activeTab === 'DIAGRAM' && (
-        <div className="flex-1 bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden min-h-[600px]">
+        <div
+          className="w-full h-[650px] min-h-[600px] bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden"
+          style={{ width: '100%', height: '650px' }}
+        >
           <ReactFlow
+            key={selectedDept}
             nodes={nodes}
             edges={edges}
             nodeTypes={nodeTypes}
