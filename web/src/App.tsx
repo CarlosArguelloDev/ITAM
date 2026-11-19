@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { DashboardView } from './views/DashboardView';
 import { AssetsView } from './views/AssetsView';
 import { UsersDiagramView } from './views/UsersDiagramView';
+import { DepartmentsView } from './views/DepartmentsView';
 import { AuditsView } from './views/AuditsView';
 import { DiscrepanciesView } from './views/DiscrepanciesView';
 import { AlertsView } from './views/AlertsView';
@@ -65,6 +66,11 @@ export const App: React.FC = () => {
           title: 'Users & Diagrams (Custodia de Hardware)',
           subtitle: 'Árbol interactivo de asignación de equipos por colaborador',
         };
+      case 'departments':
+        return {
+          title: 'Departamentos, Bodegas y Sites',
+          subtitle: 'Asignación de infraestructura por área/bodega y diagramas separados por colaborador',
+        };
       case 'audits':
         return {
           title: 'Campañas e Historial de Auditorías',
@@ -121,6 +127,7 @@ export const App: React.FC = () => {
           )}
           {currentView === 'assets' && <AssetsView />}
           {currentView === 'users' && <UsersDiagramView />}
+          {currentView === 'departments' && <DepartmentsView />}
           {currentView === 'audits' && <AuditsView />}
           {currentView === 'discrepancies' && (
             <DiscrepanciesView onDiscrepancyResolved={loadGlobalBadges} />

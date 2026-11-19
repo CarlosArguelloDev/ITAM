@@ -10,6 +10,8 @@ import {
   AlertItem,
   PendingResponsivaItem,
   Department,
+  DepartmentSummary,
+  DepartmentDiagramResponse,
 } from './types';
 
 const API_BASE = '/api';
@@ -40,6 +42,25 @@ export const api = {
   getStats: () => fetchJSON<DashboardStats>('/stats'),
   getAlerts: () => fetchJSON<AlertItem[]>('/alerts'),
   getDepartments: () => fetchJSON<Department[]>('/departments'),
+  getDepartmentSummaries: () => fetchJSON<DepartmentSummary[]>('/departments/summary'),
+  createDepartment: (name: string) =>
+    fetchJSON<{ id: string; name: string }>('/departments', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+  getDepartmentDiagram: (name: string) =>
+    fetchJSON<DepartmentDiagramResponse>(`/departments/${encodeURIComponent(name)}/diagram`),
+  assignAssetToDepartment: (payload: {
+    asset_id: string;
+    department: string;
+    location?: string;
+    status?: string;
+    notes?: string;
+  }) =>
+    fetchJSON<Asset>('/assets/assign-department', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   // Usuarios
   getUsers: (params?: { search?: string; department?: string; active?: boolean }) => {

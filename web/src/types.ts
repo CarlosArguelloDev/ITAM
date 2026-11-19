@@ -42,6 +42,34 @@ export interface Department {
   created_at: string;
 }
 
+export interface DepartmentSummary {
+  name: string;
+  total_assets: number;
+  direct_assets: number;
+  user_assets: number;
+  users_count: number;
+  is_site: boolean;
+}
+
+export interface DepartmentUserGroup {
+  user: User;
+  assets: Asset[];
+}
+
+export interface DepartmentDiagramResponse {
+  department: string;
+  direct_assets: Asset[];
+  user_groups: DepartmentUserGroup[];
+  nodes: DiagramNode[];
+  edges: DiagramEdge[];
+  summary: {
+    total: number;
+    direct: number;
+    assigned_to_users: number;
+    users_count: number;
+  };
+}
+
 export type AssetStatus = 'AVAILABLE' | 'ASSIGNED' | 'MAINTENANCE' | 'RETIRED' | 'LOST';
 export type ResponsivaStatus = 'PENDING' | 'SIGNED' | 'NOT_REQUIRED';
 export type DiscrepancyType = 'MATCH' | 'WRONG_USER' | 'WRONG_LOCATION' | 'UNEXPECTED_STATUS' | 'MISSING';

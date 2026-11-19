@@ -184,6 +184,14 @@ func (h *AppHandler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 
 	newID := "ast-" + uuid.New().String()[:8]
 
+	// Si el activo tiene un usuario asignado, sincronizar departamento automáticamente con el del usuario
+	if req.AssignedToUserID != nil && *req.AssignedToUserID != "" {
+		var userDept string
+		if err := h.DB.QueryRow("SELECT department FROM users WHERE id = ?", *req.AssignedToUserID).Scan(&userDept); err == nil && userDept != "" {
+			req.Department = userDept
+		}
+	}
+
 	tx, err := h.DB.Begin()
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error de transacción: "+err.Error())
@@ -242,6 +250,14 @@ func (h *AppHandler) UpdateAsset(w http.ResponseWriter, r *http.Request) {
 	} else if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error: "+err.Error())
 		return
+	}
+
+	// Si el activo tiene un usuario asignado, sincronizar departamento automáticamente con el del usuario
+	if req.AssignedToUserID != nil && *req.AssignedToUserID != "" {
+		var userDept string
+		if err := h.DB.QueryRow("SELECT department FROM users WHERE id = ?", *req.AssignedToUserID).Scan(&userDept); err == nil && userDept != "" {
+			req.Department = userDept
+		}
 	}
 
 	tx, err := h.DB.Begin()
@@ -378,10 +394,15 @@ func (h *AppHandler) AssignAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Obtener ubicación del usuario si no se especifica
+	// Obtener ubicación y departamento del usuario
+	var userDept string
+	var userLoc string
+	_ = h.DB.QueryRow("SELECT location, department FROM users WHERE id = ?", req.UserID).Scan(&userLoc, &userDept)
+
 	if req.Location == "" || (req.Location != "OPM" && req.Location != "OMEX") {
-		_ = h.DB.QueryRow("SELECT location FROM users WHERE id = ?", req.UserID).Scan(&req.Location)
-		if req.Location != "OPM" && req.Location != "OMEX" {
+		if userLoc == "OPM" || userLoc == "OMEX" {
+			req.Location = userLoc
+		} else {
 			req.Location = currentLoc
 			if req.Location != "OPM" && req.Location != "OMEX" {
 				req.Location = "OPM"
@@ -418,6 +439,14 @@ func (h *AppHandler) AssignAsset(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Si el activo tiene un usuario asignado, sincronizar departamento automáticamente con el del usuario
+	if req.AssignedToUserID != nil && *req.AssignedToUserID != "" {
+		var userDept string
+		if err := h.DB.QueryRow("SELECT department FROM users WHERE id = ?", *req.AssignedToUserID).Scan(&userDept); err == nil && userDept != "" {
+			req.Department = userDept
+		}
+	}
+
 	tx, err := h.DB.Begin()
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error: "+err.Error())
@@ -425,12 +454,20 @@ func (h *AppHandler) AssignAsset(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	// Actualizar activo
-	_, err = tx.Exec(`
-		UPDATE assets
-		SET status = 'ASSIGNED', assigned_to_user_id = ?, parent_asset_id = ?, location = ?
-		WHERE id = ?
-	`, req.UserID, req.ParentAssetID, req.Location, req.AssetID)
+	// Actualizar activo (sincronizando department con el del usuario)
+	if userDept != "" {
+		_, err = tx.Exec(`
+			UPDATE assets
+			SET status = 'ASSIGNED', assigned_to_user_id = ?, parent_asset_id = ?, location = ?, department = ?
+			WHERE id = ?
+		`, req.UserID, req.ParentAssetID, req.Location, userDept, req.AssetID)
+	} else {
+		_, err = tx.Exec(`
+			UPDATE assets
+			SET status = 'ASSIGNED', assigned_to_user_id = ?, parent_asset_id = ?, location = ?
+			WHERE id = ?
+		`, req.UserID, req.ParentAssetID, req.Location, req.AssetID)
+	}
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error al asignar activo: "+err.Error())
 		return
@@ -503,6 +540,14 @@ func (h *AppHandler) UnassignAsset(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Si el activo tiene un usuario asignado, sincronizar departamento automáticamente con el del usuario
+	if req.AssignedToUserID != nil && *req.AssignedToUserID != "" {
+		var userDept string
+		if err := h.DB.QueryRow("SELECT department FROM users WHERE id = ?", *req.AssignedToUserID).Scan(&userDept); err == nil && userDept != "" {
+			req.Department = userDept
+		}
+	}
+
 	tx, err := h.DB.Begin()
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error: "+err.Error())
@@ -564,6 +609,14 @@ func (h *AppHandler) SwapAsset(w http.ResponseWriter, r *http.Request) {
 		req.OldAssetNextStatus = models.StatusMaintenance
 	}
 
+	// Si el activo tiene un usuario asignado, sincronizar departamento automáticamente con el del usuario
+	if req.AssignedToUserID != nil && *req.AssignedToUserID != "" {
+		var userDept string
+		if err := h.DB.QueryRow("SELECT department FROM users WHERE id = ?", *req.AssignedToUserID).Scan(&userDept); err == nil && userDept != "" {
+			req.Department = userDept
+		}
+	}
+
 	tx, err := h.DB.Begin()
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error de transacción: "+err.Error())
@@ -572,9 +625,9 @@ func (h *AppHandler) SwapAsset(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	// 1. Obtener datos del usuario
-	var userLocation string
+	var userLocation, userDept string
 	var userName string
-	err = tx.QueryRow("SELECT full_name, location FROM users WHERE id = ?", req.UserID).Scan(&userName, &userLocation)
+	err = tx.QueryRow("SELECT full_name, location, department FROM users WHERE id = ?", req.UserID).Scan(&userName, &userLocation, &userDept)
 	if err != nil {
 		ErrorResponse(w, http.StatusNotFound, "Usuario de destino no encontrado")
 		return
@@ -631,12 +684,20 @@ func (h *AppHandler) SwapAsset(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 6. Asignar nuevo equipo al usuario
-	_, err = tx.Exec(`
-		UPDATE assets
-		SET status = 'ASSIGNED', assigned_to_user_id = ?, location = ?, parent_asset_id = NULL
-		WHERE id = ?
-	`, req.UserID, userLocation, req.NewAssetID)
+	// 6. Asignar nuevo equipo al usuario (sincronizando department)
+	if userDept != "" {
+		_, err = tx.Exec(`
+			UPDATE assets
+			SET status = 'ASSIGNED', assigned_to_user_id = ?, location = ?, department = ?, parent_asset_id = NULL
+			WHERE id = ?
+		`, req.UserID, userLocation, userDept, req.NewAssetID)
+	} else {
+		_, err = tx.Exec(`
+			UPDATE assets
+			SET status = 'ASSIGNED', assigned_to_user_id = ?, location = ?, parent_asset_id = NULL
+			WHERE id = ?
+		`, req.UserID, userLocation, req.NewAssetID)
+	}
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error al asignar equipo nuevo: "+err.Error())
 		return

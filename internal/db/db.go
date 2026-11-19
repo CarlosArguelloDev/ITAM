@@ -89,6 +89,10 @@ func runMigrations(db *sql.DB) error {
 		"ALTER TABLE audit_campaigns ADD COLUMN notes TEXT NULLABLE;",
 		"ALTER TABLE audit_scans ADD COLUMN notes TEXT NULLABLE;",
 		"ALTER TABLE users ADD COLUMN position TEXT NOT NULL DEFAULT '';",
+		`UPDATE assets
+		 SET department = (SELECT department FROM users WHERE users.id = assets.assigned_to_user_id)
+		 WHERE assigned_to_user_id IS NOT NULL AND assigned_to_user_id != ''
+		   AND EXISTS (SELECT 1 FROM users WHERE users.id = assets.assigned_to_user_id AND users.department != '');`,
 	}
 	for _, alter := range alters {
 		_, _ = db.Exec(alter)

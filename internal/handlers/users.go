@@ -217,6 +217,11 @@ func (h *AppHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Mantener sincronizado el departamento de los activos asignados a este usuario
+	if strings.TrimSpace(req.Department) != "" {
+		_, _ = h.DB.Exec(`UPDATE assets SET department = ? WHERE assigned_to_user_id = ?`, req.Department, id)
+	}
+
 	h.GetUserByID(w, id, http.StatusOK)
 }
 

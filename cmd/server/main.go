@@ -113,6 +113,9 @@ func main() {
 		api.Get("/stats", appHandler.GetStats)
 		api.Get("/alerts", appHandler.GetAlerts)
 		api.Get("/departments", appHandler.ListDepartments)
+		api.Post("/departments", appHandler.CreateDepartment)
+		api.Get("/departments/summary", appHandler.ListDepartmentSummaries)
+		api.Get("/departments/{name}/diagram", appHandler.GetDepartmentDiagram)
 
 		// Gestión de Usuarios
 		api.Route("/users", func(u chi.Router) {
@@ -137,6 +140,7 @@ func main() {
 
 			// Acciones de ciclo de vida
 			a.Post("/assign", appHandler.AssignAsset)
+			a.Post("/assign-department", appHandler.AssignAssetToDepartment)
 			a.Post("/unassign", appHandler.UnassignAsset)
 			a.Post("/swap", appHandler.SwapAsset)
 			a.Post("/{id}/print-brother", appHandler.PrintAssetLabelBrother)

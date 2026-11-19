@@ -7,9 +7,10 @@ import {
   AlertTriangle,
   Bell,
   FileText,
+  Building2,
 } from 'lucide-react';
 
-export type NavView = 'dashboard' | 'assets' | 'users' | 'audits' | 'discrepancies' | 'alerts' | 'documents';
+export type NavView = 'dashboard' | 'assets' | 'users' | 'departments' | 'audits' | 'discrepancies' | 'alerts' | 'documents';
 
 interface SidebarProps {
   currentView: NavView;
@@ -30,6 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard' as NavView, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'assets' as NavView, label: 'Assets', icon: Laptop },
     { id: 'users' as NavView, label: 'Users & Diagrams', icon: Users },
+    { id: 'departments' as NavView, label: 'Deptos & Sites', icon: Building2 },
     { id: 'audits' as NavView, label: 'Auditorías', icon: ClipboardCheck },
     {
       id: 'discrepancies' as NavView,
