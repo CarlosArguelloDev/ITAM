@@ -65,9 +65,8 @@ export const SanJuanMap: React.FC<SanJuanMapProps> = ({
       attributionControl: false,
     });
 
-    // Mapa real estilo minimalista claro (CartoDB Positron)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd',
+    // Mapa real de OpenStreetMap con estilo minimalista claro (sin API key)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
     }).addTo(map);
 
@@ -119,7 +118,7 @@ export const SanJuanMap: React.FC<SanJuanMapProps> = ({
   }, [opmCount, omexCount, selectedSite]);
 
   return (
-    <div className="relative w-full h-[290px] rounded-2xl bg-[#F4F6FA] border border-[#E6E8F0] overflow-hidden">
+    <div className="relative w-full h-[290px] rounded-2xl bg-[#F4F6FA] border border-[#E6E8F0] overflow-hidden opti-minimal-map">
       <div
         ref={containerRef}
         className="w-full h-full z-0"

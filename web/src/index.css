@@ -21,6 +21,10 @@
   font-variant-numeric: tabular-nums;
 }
 
+.opti-minimal-map .leaflet-tile-pane {
+  filter: grayscale(85%) contrast(0.92) brightness(1.05);
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
