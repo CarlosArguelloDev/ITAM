@@ -8,9 +8,18 @@ import {
   Bell,
   FileText,
   Building2,
+  X,
 } from 'lucide-react';
 
-export type NavView = 'dashboard' | 'assets' | 'users' | 'departments' | 'audits' | 'discrepancies' | 'alerts' | 'documents';
+export type NavView =
+  | 'dashboard'
+  | 'assets'
+  | 'users'
+  | 'departments'
+  | 'audits'
+  | 'discrepancies'
+  | 'alerts'
+  | 'documents';
 
 interface SidebarProps {
   currentView: NavView;
@@ -18,6 +27,8 @@ interface SidebarProps {
   discrepanciesCount: number;
   alertsCount: number;
   pendingResponsivasCount: number;
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -26,12 +37,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   discrepanciesCount,
   alertsCount,
   pendingResponsivasCount,
+  mobileOpen = false,
+  onCloseMobile,
 }) => {
-  const navItems = [
-    { id: 'dashboard' as NavView, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'assets' as NavView, label: 'Assets', icon: Laptop },
-    { id: 'users' as NavView, label: 'Users & Diagrams', icon: Users },
+  const primaryItems = [
+    { id: 'dashboard' as NavView, label: 'Inicio', icon: LayoutDashboard },
+    { id: 'assets' as NavView, label: 'Inventario', icon: Laptop },
+    { id: 'users' as NavView, label: 'Colaboradores', icon: Users },
     { id: 'departments' as NavView, label: 'Deptos & Sites', icon: Building2 },
+  ];
+
+  const controlItems = [
     { id: 'audits' as NavView, label: 'Auditorías', icon: ClipboardCheck },
     {
       id: 'discrepancies' as NavView,
@@ -42,69 +58,139 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'alerts' as NavView,
-      label: 'Alerts',
+      label: 'Alertas',
       icon: Bell,
       badge: alertsCount > 0 ? alertsCount : undefined,
-      badgeColor: 'bg-red-100 text-red-800 border-red-200',
+      badgeColor: 'bg-rose-100 text-rose-800 border-rose-200',
     },
     {
       id: 'documents' as NavView,
-      label: 'Documents (Responsivas)',
+      label: 'Responsivas',
       icon: FileText,
       badge: pendingResponsivasCount > 0 ? pendingResponsivasCount : undefined,
-      badgeColor: 'bg-blue-100 text-blue-800 border-blue-200',
+      badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
     },
   ];
 
+  const handleNav = (view: NavView) => {
+    onNavigate(view);
+    if (onCloseMobile) onCloseMobile();
+  };
+
+  const renderGroup = (
+    title: string,
+    items: {
+      id: NavView;
+      label: string;
+      icon: React.ComponentType<{ className?: string }>;
+      badge?: number;
+      badgeColor?: string;
+    }[]
+  ) => (
+    <div className="space-y-1">
+      <div className="px-3.5 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        {title}
+      </div>
+      {items.map((item) => {
+        const Icon = item.icon;
+        const isActive = currentView === item.id;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => handleNav(item.id)}
+            aria-current={isActive ? 'page' : undefined}
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-[13px] transition-all active:scale-[0.98] ${
+              isActive
+                ? 'bg-[#F3F2FF] text-[#4F46E5] border border-[#E4E2F8] font-semibold shadow-2xs'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium border border-transparent'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Icon
+                className={`w-4 h-4 ${isActive ? 'text-[#5B4FE9]' : 'text-slate-400'}`}
+              />
+              <span>{item.label}</span>
+            </div>
+            {item.badge !== undefined && (
+              <span
+                className={`text-[11px] px-2 py-0.5 rounded-full border font-bold tabular-nums ${item.badgeColor}`}
+              >
+                {item.badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
-    <aside className="fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-[#E2E8F0] z-30 flex flex-col justify-between shadow-sm">
-      <div>
-        {/* Brand Header */}
-        <div className="h-16 flex items-center px-6 border-b border-[#E2E8F0] gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-500 to-sky-700 flex items-center justify-center text-white shadow-sm font-bold text-sm">
-            IT
+    <>
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-30 lg:hidden"
+          onClick={onCloseMobile}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        aria-label="Navegación principal"
+        className={`fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-[#E6E8F0] z-40 flex flex-col justify-between transition-transform duration-200 ease-out ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}
+      >
+        <div>
+          {/* Brand Header */}
+          <div className="h-16 flex items-center justify-between px-5 border-b border-[#E6E8F0]">
+            <div className="flex items-center gap-2.5">
+              <img
+                src="/optibelt-logo.webp"
+                alt="Optibelt"
+                className="h-8 w-auto object-contain"
+              />
+              <div>
+                <h1 className="text-sm font-extrabold text-slate-900 tracking-tight leading-none">
+                  Opti ITAM
+                </h1>
+                <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                  Custodia de Activos
+                </p>
+              </div>
+            </div>
+            {onCloseMobile && (
+              <button
+                type="button"
+                onClick={onCloseMobile}
+                aria-label="Cerrar menú"
+                className="lg:hidden p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
-          <div>
-            <h1 className="text-base font-bold text-slate-900 tracking-tight leading-none">
-              Opti ITAM
-            </h1>
-            <p className="text-[11px] text-slate-500 font-medium">Asset & Custody Manager</p>
-          </div>
+
+          <nav className="p-3 space-y-3 overflow-y-auto">
+            {renderGroup('Principal', primaryItems)}
+            {renderGroup('Control y Auditoría', controlItems)}
+          </nav>
         </div>
 
-        {/* Navigation Links */}
-        <nav className="p-3 space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentView === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onNavigate(item.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-sky-50 text-sky-700 border border-sky-100 font-semibold'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon
-                    className={`w-4 h-4 ${isActive ? 'text-sky-600' : 'text-slate-400'}`}
-                  />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge !== undefined && (
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${item.badgeColor}`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-    </aside>
+        {/* Footer */}
+        <div className="p-4 border-t border-[#E6E8F0]">
+          <div className="rounded-xl bg-[#F6F7FB] border border-[#E6E8F0] px-3.5 py-2.5 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-bold text-slate-700">San Juan del Río</p>
+              <p className="text-[10px] text-slate-500">OPM • OMEX</p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              Activo
+            </span>
+          </div>
+        </div>
+      </aside>
+    </>
   );
 };

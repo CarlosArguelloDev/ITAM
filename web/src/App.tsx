@@ -16,6 +16,7 @@ import { AuditCampaign, User } from './types';
 export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<NavView>('dashboard');
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Datos globales compartidos
   const [campaigns, setCampaigns] = useState<AuditCampaign[]>([]);
@@ -53,18 +54,18 @@ export const App: React.FC = () => {
     switch (currentView) {
       case 'dashboard':
         return {
-          title: 'Dashboard de Activos',
-          subtitle: 'Visión general de infraestructura de TI y métricas operativas',
+          title: 'Panel de Control',
+          subtitle: 'Resumen de inventario, sedes en San Juan del Río y movimientos recientes',
         };
       case 'assets':
         return {
-          title: 'Inventario de Activos (Hardware)',
-          subtitle: 'Altas, bajas, especificaciones técnicas y rotulación con código de barras',
+          title: 'Inventario de Hardware',
+          subtitle: 'Altas, edición, etiquetas Brother y trazabilidad por número de serie',
         };
       case 'users':
         return {
-          title: 'Users & Diagrams (Custodia de Hardware)',
-          subtitle: 'Árbol interactivo de asignación de equipos por colaborador',
+          title: 'Colaboradores y Custodia',
+          subtitle: 'Equipos asignados, diagramas jerárquicos y cartas responsivas',
         };
       case 'departments':
         return {
@@ -98,7 +99,7 @@ export const App: React.FC = () => {
   const headerInfo = getHeaderInfo();
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex text-slate-800">
+    <div className="min-h-screen bg-[#F6F7FB] flex text-slate-800">
       {/* Barra Lateral Izquierda Fija */}
       <Sidebar
         currentView={currentView}
@@ -106,15 +107,18 @@ export const App: React.FC = () => {
         discrepanciesCount={discrepanciesCount}
         alertsCount={alertsCount}
         pendingResponsivasCount={pendingResponsivasCount}
+        mobileOpen={mobileNavOpen}
+        onCloseMobile={() => setMobileNavOpen(false)}
       />
 
-      {/* Contenedor Principal (con margen izquierdo para respetar el sidebar fijo) */}
-      <div className="flex-1 ml-64 flex flex-col min-w-0">
+      {/* Contenedor Principal (con margen izquierdo en desktop para respetar el sidebar fijo) */}
+      <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
         {/* Barra Superior Fija */}
         <Header
           title={headerInfo.title}
           subtitle={headerInfo.subtitle}
           onOpenScanner={() => setScannerOpen(true)}
+          onOpenMobileMenu={() => setMobileNavOpen(true)}
         />
 
         {/* Vista Actual */}

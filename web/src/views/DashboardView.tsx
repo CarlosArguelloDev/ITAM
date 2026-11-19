@@ -1,29 +1,53 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   Laptop,
+  Monitor,
+  Smartphone,
+  Printer,
+  Headphones,
+  Server,
+  Wifi,
+  Cpu,
+  Box,
   AlertTriangle,
-  FileCheck,
-  ShieldAlert,
-  Users,
-  MapPin,
-  ArrowRight,
-  TrendingUp,
   RefreshCw,
+  ChevronRight,
+  CheckCircle2,
+  Wrench,
   Clock,
   Barcode,
 } from 'lucide-react';
-import { DashboardStats, AlertItem } from '../types';
+import { DashboardStats, AlertItem, Asset, DepartmentSummary } from '../types';
 import { api } from '../api';
 import { NavView } from '../components/Sidebar';
+import { SanJuanMap } from '../components/SanJuanMap';
 
 interface DashboardViewProps {
   onNavigate: (view: NavView) => void;
   onOpenScanner: () => void;
 }
 
+const getCatIcon = (category: string) => {
+  const c = category.toUpperCase();
+  if (c === 'LAPTOP') return <Laptop className="w-4 h-4 text-[#5B4FE9]" />;
+  if (c === 'MONITOR') return <Monitor className="w-4 h-4 text-sky-600" />;
+  if (c === 'TELEFONO' || c === 'IPAD') return <Smartphone className="w-4 h-4 text-violet-600" />;
+  if (c === 'IMPRESORA') return <Printer className="w-4 h-4 text-amber-600" />;
+  if (c === 'AUDIFONOS') return <Headphones className="w-4 h-4 text-emerald-600" />;
+  if (c === 'ACCESS POINT' || c === 'ROUTER') return <Wifi className="w-4 h-4 text-cyan-600" />;
+  if (c.includes('SWITCH') || c === 'FIREWALL' || c === 'SERVER') {
+    return <Server className="w-4 h-4 text-indigo-600" />;
+  }
+  if (c === 'WORKSTATION' || c === 'DOCKING') return <Cpu className="w-4 h-4 text-slate-600" />;
+  return <Box className="w-4 h-4 text-slate-500" />;
+};
+
 export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpenScanner }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [recentAssigned, setRecentAssigned] = useState<Asset[]>([]);
+  const [deptSummaries, setDeptSummaries] = useState<DepartmentSummary[]>([]);
+  const [selectedSite, setSelectedSite] = useState<'ALL' | 'OPM' | 'OMEX'>('ALL');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,9 +57,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
   const loadData = async () => {
     try {
       setLoading(true);
-      const [s, a] = await Promise.all([api.getStats(), api.getAlerts()]);
+      const [s, a, assetsList, depts] = await Promise.all([
+        api.getStats(),
+        api.getAlerts().catch(() => []),
+        api.getAssets().catch(() => []),
+        api.getDepartmentSummaries().catch(() => []),
+      ]);
       setStats(s);
       setAlerts(a);
+      setDeptSummaries(depts);
+
+      const assigned = assetsList
+        .filter((item) => item.assigned_to_user_id && item.assigned_to_name)
+        .slice(0, 6);
+      setRecentAssigned(assigned);
     } catch (err) {
       console.error('Error cargando stats:', err);
     } finally {
@@ -43,367 +78,399 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
     }
   };
 
-  // Paleta de colores para las categorías en el gráfico
-  const categoryPalette: Record<string, string> = {
-    MONITOR: '#6366F1', // indigo-500
-    LAPTOP: '#0284C7', // sky-600
-    AUDIFONOS: '#F59E0B', // amber-500
-    TELEFONO: '#10B981', // emerald-500
-    SWITCH: '#8B5CF6', // purple-500
-    'ACCESS POINT': '#EC4899', // pink-500
-    IMPRESORA: '#3B82F6', // blue-500
-    DOCKING: '#0D9488', // teal-600
-    WORKSTATION: '#64748B', // slate-500
-    'SIM-CARD': '#A855F7', // purple-400
-    'OTROS (< 5%)': '#94A3B8', // slate-400
-    OTROS: '#94A3B8',
-  };
-
-  const getCategoryColor = (cat: string, index: number) => {
-    if (categoryPalette[cat]) return categoryPalette[cat];
-    const fallback = ['#0EA5E9', '#14B8A6', '#8B5CF6', '#F97316', '#E11D48', '#84CC16', '#6366F1'];
-    return fallback[index % fallback.length];
-  };
-
   const totalAssets = stats?.total_assets || 0;
+  const availableCount = stats?.status_counts?.['AVAILABLE'] || 0;
+  const assignedCount = stats?.status_counts?.['ASSIGNED'] || 0;
+  const maintenanceCount = stats?.status_counts?.['MAINTENANCE'] || 0;
+  const attentionCount = (stats?.active_discrepancies || 0) + (stats?.pending_responsivas || 0);
 
-  // Agrupar categorías para la gráfica: aquellas con menos de 5% se agrupan en "OTROS"
-  const chartCategories = useMemo(() => {
+  const opmCount = stats?.location_counts?.['OPM'] || 0;
+  const omexCount = stats?.location_counts?.['OMEX'] || 0;
+
+  // Categorías agrupando < 5% en OTROS (< 5%)
+  const categoryList = useMemo(() => {
     if (!stats?.category_counts || totalAssets === 0) return [];
-
-    const entries = Object.entries(stats.category_counts);
-    entries.sort((a, b) => b[1] - a[1]);
-
+    const entries = Object.entries(stats.category_counts).sort((a, b) => b[1] - a[1]);
     const main: { name: string; count: number; pct: number }[] = [];
-    let othersCount = 0;
+    let others = 0;
 
-    entries.forEach(([cat, count]) => {
+    entries.forEach(([name, count]) => {
       const pct = (count / totalAssets) * 100;
-      if (pct >= 5.0) {
-        main.push({ name: cat, count, pct });
+      if (pct >= 5) {
+        main.push({ name, count, pct });
       } else {
-        othersCount += count;
+        others += count;
       }
     });
 
-    if (othersCount > 0) {
-      const othersPct = (othersCount / totalAssets) * 100;
-      main.push({ name: 'OTROS (< 5%)', count: othersCount, pct: othersPct });
+    if (others > 0) {
+      main.push({ name: 'OTROS (< 5%)', count: others, pct: (others / totalAssets) * 100 });
     }
-
     return main;
   }, [stats?.category_counts, totalAssets]);
 
+  const topAreas = useMemo(() => {
+    return [...deptSummaries]
+      .sort((a, b) => b.total_assets - a.total_assets)
+      .slice(0, 6);
+  }, [deptSummaries]);
+
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto">
-      {/* Banner Superior de Bienvenida y Acciones Rápidas */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 to-slate-800 p-6 rounded-2xl text-white shadow-sm">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
+      {/* Saludo y acción rápida */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold">Control de Custodia e Inventario de TI</h2>
-          <p className="text-xs text-slate-300 mt-1">
-            Conciliación de inventario, trazabilidad de equipos y gestión de responsivas.
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+            Bienvenido, Carlos
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Control de infraestructura de TI, ubicaciones en San Juan del Río y resguardo de equipos.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button
+            type="button"
             onClick={loadData}
-            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition"
-            title="Recargar métricas"
+            aria-label="Actualizar métricas"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-[#E6E8F0] text-xs font-semibold text-slate-700 hover:bg-slate-50 transition active:scale-[0.98]"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Actualizar</span>
           </button>
           <button
+            type="button"
             onClick={onOpenScanner}
-            className="flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl shadow transition"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#5B4FE9] hover:bg-[#4B3FD8] text-white text-xs font-semibold shadow-xs transition active:scale-[0.98]"
           >
-            <Barcode className="w-4 h-4" />
-            <span>Escanear Código de Barras</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <Barcode className="w-3.5 h-3.5" />
+            <span>Escanear</span>
           </button>
         </div>
       </div>
 
-      {/* 4 KPIs Superiores */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* KPI 1: Total Activos */}
-        <div
-          onClick={() => onNavigate('assets')}
-          className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-sm hover:shadow-md transition cursor-pointer"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Total Activos
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
-              <Laptop className="w-4 h-4" />
+      {/* BENTO FILA 1: Hero + 4 estados a la izquierda | Mapa San Juan del Río a la derecha */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Columna Izquierda (5/12) */}
+        <div className="lg:col-span-5 flex flex-col gap-4">
+          {/* Hero Total Assets Card */}
+          <div className="relative overflow-hidden rounded-2xl border border-[#E4E2F8] bg-gradient-to-br from-[#F3F2FF] via-[#F7F6FF] to-white p-6 flex items-center justify-between gap-4">
+            <div className="space-y-3 z-10">
+              <p className="text-xs sm:text-sm font-semibold text-slate-700 leading-snug max-w-[230px]">
+                Aquí está el conteo total de tus activos de TI. Entra para explorar y gestionar.
+              </p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 tabular-nums tracking-tight">
+                  {totalAssets}
+                </span>
+                <span className="text-xs font-semibold text-slate-500">Activos Totales</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigate('assets')}
+                className="inline-flex items-center gap-1.5 bg-[#5B4FE9] hover:bg-[#4B3FD8] text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition active:scale-[0.98]"
+              >
+                <span>Explorar Todos</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
+
+            {/* Ilustración limpia de dispositivos */}
+            <svg
+              viewBox="0 0 120 100"
+              className="w-28 h-24 shrink-0 hidden sm:block"
+              aria-hidden="true"
+            >
+              <rect x="34" y="14" width="72" height="50" rx="5" fill="#FFFFFF" stroke="#64748B" strokeWidth="2.2" />
+              <line x1="58" y1="64" x2="54" y2="76" stroke="#64748B" strokeWidth="2.2" />
+              <line x1="82" y1="64" x2="86" y2="76" stroke="#64748B" strokeWidth="2.2" />
+              <line x1="46" y1="76" x2="94" y2="76" stroke="#64748B" strokeWidth="2.2" strokeLinecap="round" />
+              <rect x="20" y="42" width="32" height="42" rx="4" fill="#F3F2FF" stroke="#5B4FE9" strokeWidth="2" />
+              <rect x="8" y="56" width="18" height="30" rx="3" fill="#FFFFFF" stroke="#5B4FE9" strokeWidth="2" />
+              <circle cx="17" cy="81" r="1.5" fill="#5B4FE9" />
+            </svg>
           </div>
-          <p className="text-2xl font-bold text-slate-900 mt-2">{stats?.total_assets ?? '-'}</p>
-          <div className="flex items-center gap-1.5 mt-2 text-xs text-slate-500">
-            <span className="font-semibold text-emerald-600">
-              {stats?.status_counts['ASSIGNED'] || 0}
-            </span>
-            <span>asignados en custodia</span>
+
+          {/* Grid 2x2 de Estados */}
+          <div className="grid grid-cols-2 gap-4 flex-1">
+            <button
+              type="button"
+              onClick={() => onNavigate('assets')}
+              className="text-left bg-white p-4 rounded-2xl border border-[#E6E8F0] hover:border-sky-300 hover:-translate-y-0.5 transition-all flex items-center justify-between gap-3 active:scale-[0.99]"
+            >
+              <div>
+                <p className="text-2xl font-extrabold text-slate-900 tabular-nums">
+                  {availableCount}
+                </p>
+                <p className="text-xs font-medium text-slate-500 mt-0.5">Disponibles</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('users')}
+              className="text-left bg-white p-4 rounded-2xl border border-[#E6E8F0] hover:border-emerald-300 hover:-translate-y-0.5 transition-all flex items-center justify-between gap-3 active:scale-[0.99]"
+            >
+              <div>
+                <p className="text-2xl font-extrabold text-slate-900 tabular-nums">
+                  {assignedCount}
+                </p>
+                <p className="text-xs font-medium text-slate-500 mt-0.5">En Uso</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                <Laptop className="w-5 h-5" />
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('assets')}
+              className="text-left bg-white p-4 rounded-2xl border border-[#E6E8F0] hover:border-amber-300 hover:-translate-y-0.5 transition-all flex items-center justify-between gap-3 active:scale-[0.99]"
+            >
+              <div>
+                <p className="text-2xl font-extrabold text-slate-900 tabular-nums">
+                  {maintenanceCount}
+                </p>
+                <p className="text-xs font-medium text-slate-500 mt-0.5">Mantenimiento</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                <Wrench className="w-5 h-5" />
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('discrepancies')}
+              className="text-left bg-white p-4 rounded-2xl border border-[#E6E8F0] hover:border-rose-300 hover:-translate-y-0.5 transition-all flex items-center justify-between gap-3 active:scale-[0.99]"
+            >
+              <div>
+                <p className="text-2xl font-extrabold text-slate-900 tabular-nums">
+                  {attentionCount}
+                </p>
+                <p className="text-xs font-medium text-slate-500 mt-0.5">Pendientes</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+            </button>
           </div>
         </div>
 
-        {/* KPI 2: Discrepancias Activas */}
-        <div
-          onClick={() => onNavigate('discrepancies')}
-          className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-sm hover:shadow-md transition cursor-pointer"
-        >
+        {/* Columna Derecha (7/12): Mapa Minimalista de San Juan del Río (OPM y OMEX) */}
+        <div className="lg:col-span-7 bg-white p-6 rounded-2xl border border-[#E6E8F0] flex flex-col justify-between gap-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Discrepancias
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-slate-900 mt-2">
-            {stats?.active_discrepancies ?? 0}
-          </p>
-          <div className="flex items-center gap-1.5 mt-2 text-xs text-amber-700">
-            <span>Requieren conciliación física</span>
-          </div>
-        </div>
-
-        {/* KPI 3: Responsivas Pendientes */}
-        <div
-          onClick={() => onNavigate('documents')}
-          className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-sm hover:shadow-md transition cursor-pointer"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Responsivas Pendientes
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <FileCheck className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-slate-900 mt-2">
-            {stats?.pending_responsivas ?? 0}
-          </p>
-          <div className="flex items-center gap-1.5 mt-2 text-xs text-slate-500">
-            <span>Pendientes de carga de firma</span>
-          </div>
-        </div>
-
-        {/* KPI 4: Sin Auditar > 90 Días */}
-        <div
-          onClick={() => onNavigate('alerts')}
-          className="bg-white p-5 rounded-2xl border border-[#E2E8F0] shadow-sm hover:shadow-md transition cursor-pointer"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Sin Auditar &gt; 90 Días
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
-              <Clock className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-slate-900 mt-2">
-            {stats?.unaudited_assets_over_90_days ?? 0}
-          </p>
-          <div className="flex items-center gap-1.5 mt-2 text-xs text-red-700">
-            <span>Alerta de pérdida de rastro</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Gráficos de Distribución (Gráfico de Dona Puro SVG + Barras por Ubicación) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Gráfico de Dona: Activos por Categoría */}
-        <div className="bg-white p-6 rounded-2xl border border-[#E2E8F0] shadow-sm">
-          <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Activos por Categoría</h3>
-              <p className="text-xs text-slate-400">Distribución de hardware en el inventario</p>
+              <h3 className="text-sm font-bold text-slate-900">
+                Ubicación de Activos — San Juan del Río
+              </h3>
+              <p className="text-xs text-slate-500">
+                Plantas OPM y OMEX y principales áreas operativas
+              </p>
             </div>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600">
-              {totalAssets} Equipos
-            </span>
+            <button
+              type="button"
+              onClick={() => onNavigate('departments')}
+              className="text-xs font-semibold text-[#5B4FE9] hover:text-[#4B3FD8] transition"
+            >
+              Ver todos
+            </button>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-8 py-2">
-            {/* SVG Donut Chart */}
-            <div className="relative w-40 h-40 shrink-0">
-              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90 transform">
-                {(() => {
-                  let accumulatedPercent = 0;
-                  if (chartCategories.length === 0 || totalAssets === 0) {
-                    return (
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="38"
-                        fill="transparent"
-                        stroke="#E2E8F0"
-                        strokeWidth="14"
-                      />
-                    );
-                  }
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
+            <div className="md:col-span-7">
+              <SanJuanMap
+                opmCount={opmCount}
+                omexCount={omexCount}
+                selectedSite={selectedSite}
+                onSelectSite={setSelectedSite}
+              />
+            </div>
 
-                  return chartCategories.map((item, idx) => {
-                    const strokeDasharray = `${item.pct * 2.387} 238.7`;
-                    const strokeDashoffset = `-${accumulatedPercent * 2.387}`;
-                    accumulatedPercent += item.pct;
-                    const color = getCategoryColor(item.name, idx);
+            <div className="md:col-span-5 space-y-2">
+              <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSite(selectedSite === 'OPM' ? 'ALL' : 'OPM')}
+                  className={`p-2.5 rounded-xl border text-left transition ${
+                    selectedSite === 'OPM'
+                      ? 'border-sky-500 bg-sky-50/60'
+                      : 'border-[#E6E8F0] hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-sky-600" />
+                    <span className="text-[11px] font-bold text-slate-700">OPM</span>
+                  </div>
+                  <div className="text-lg font-extrabold text-slate-900 tabular-nums mt-0.5">
+                    {opmCount}
+                  </div>
+                </button>
 
-                    return (
-                      <circle
-                        key={item.name}
-                        cx="50"
-                        cy="50"
-                        r="38"
-                        fill="transparent"
-                        stroke={color}
-                        strokeWidth="15"
-                        strokeDasharray={strokeDasharray}
-                        strokeDashoffset={strokeDashoffset}
-                        className="transition-all duration-500 hover:opacity-80"
-                      />
-                    );
-                  });
-                })()}
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                <span className="text-2xl font-bold text-slate-900 leading-none">{totalAssets}</span>
-                <span className="text-[10px] uppercase font-semibold text-slate-400 mt-1">Activos</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSite(selectedSite === 'OMEX' ? 'ALL' : 'OMEX')}
+                  className={`p-2.5 rounded-xl border text-left transition ${
+                    selectedSite === 'OMEX'
+                      ? 'border-[#5B4FE9] bg-[#F3F2FF]'
+                      : 'border-[#E6E8F0] hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#5B4FE9]" />
+                    <span className="text-[11px] font-bold text-slate-700">OMEX</span>
+                  </div>
+                  <div className="text-lg font-extrabold text-slate-900 tabular-nums mt-0.5">
+                    {omexCount}
+                  </div>
+                </button>
+              </div>
+
+              <div className="space-y-1.5 pt-1">
+                {topAreas.map((area) => (
+                  <button
+                    key={area.name}
+                    type="button"
+                    onClick={() => onNavigate('departments')}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs hover:bg-slate-50 transition"
+                  >
+                    <span className="font-medium text-slate-700 truncate">{area.name}</span>
+                    <span className="font-bold text-slate-900 tabular-nums">{area.total_assets}</span>
+                  </button>
+                ))}
               </div>
             </div>
+          </div>
+        </div>
+      </div>
 
-            {/* Leyenda Detallada con Scroll si se requiere */}
-            <div className="space-y-1.5 w-full max-w-xs max-h-[230px] overflow-y-auto pr-1">
-              {chartCategories.map((item, idx) => {
-                const color = getCategoryColor(item.name, idx);
-                return (
-                  <div key={item.name} className="flex items-center justify-between text-xs py-0.5">
-                    <div className="flex items-center gap-2 truncate">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: color }}
-                      />
-                      <span className="font-semibold text-slate-700 truncate">{item.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="font-bold text-slate-900">{item.count}</span>
-                      <span className="text-[10px] text-slate-400 w-10 text-right font-mono">
-                        {item.pct.toFixed(1)}%
-                      </span>
+      {/* BENTO FILA 2: Categorías de Activos | Asignados Recientemente */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Categorías de Activos (5/12) */}
+        <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-[#E6E8F0]">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Categorías de Activos</h3>
+              <p className="text-xs text-slate-400">Categorías &lt; 5% agrupadas en Otros</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('assets')}
+              className="text-xs font-semibold text-[#5B4FE9] hover:text-[#4B3FD8]"
+            >
+              Ver inventario
+            </button>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {categoryList.map((cat) => (
+              <button
+                key={cat.name}
+                type="button"
+                onClick={() => onNavigate('assets')}
+                className="w-full py-3 flex items-center justify-between gap-3 hover:bg-slate-50/70 px-2 rounded-lg transition text-left"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center justify-center shrink-0">
+                    {getCatIcon(cat.name)}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-slate-800 truncate">{cat.name}</div>
+                    <div className="text-[11px] text-slate-400 tabular-nums">
+                      {cat.pct.toFixed(1)}% del inventario
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+                <span className="text-sm font-bold text-slate-900 tabular-nums">{cat.count}</span>
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Barras de Progreso: Activos por Ubicación */}
-        <div className="bg-white p-6 rounded-2xl border border-[#E2E8F0] shadow-sm flex flex-col justify-between">
+        {/* Asignados Recientemente (7/12) */}
+        <div className="lg:col-span-7 bg-white p-6 rounded-2xl border border-[#E6E8F0] flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Activos por Ubicación</h3>
-                <p className="text-xs text-slate-400">Distribución física por sede y bodega</p>
+                <h3 className="text-sm font-bold text-slate-900">Asignados Recientemente</h3>
+                <p className="text-xs text-slate-400">Equipos actualmente en resguardo de colaboradores</p>
               </div>
-              <MapPin className="w-4 h-4 text-slate-400" />
+              <button
+                type="button"
+                onClick={() => onNavigate('users')}
+                className="text-xs font-semibold text-[#5B4FE9] hover:text-[#4B3FD8]"
+              >
+                Ver todos
+              </button>
             </div>
 
-            <div className="space-y-3.5 mt-2">
-              {stats?.location_counts &&
-                Object.entries(stats.location_counts).map(([loc, count]) => {
-                  const pct = totalAssets > 0 ? Math.round((count / totalAssets) * 100) : 0;
-                  return (
-                    <div key={loc} className="space-y-1">
-                      <div className="flex justify-between text-xs font-medium">
-                        <span className="text-slate-700">{loc}</span>
-                        <span className="text-slate-500 font-mono">
-                          {count} ({pct}%)
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-sky-600 h-full rounded-full transition-all duration-500"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400">
+                    <th className="py-2.5 pr-4">Equipo</th>
+                    <th className="py-2.5 px-4">Número de Serie</th>
+                    <th className="py-2.5 pl-4 text-right">Asignado a</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {recentAssigned.map((item) => (
+                    <tr
+                      key={item.id}
+                      onClick={() => onNavigate('users')}
+                      className="hover:bg-slate-50/70 cursor-pointer transition"
+                    >
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-[#F6F7FB] border border-[#E6E8F0] flex items-center justify-center shrink-0">
+                            {getCatIcon(item.category)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-slate-800 truncate max-w-[200px]">
+                              {item.brand} {item.model}
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-mono">
+                              {item.asset_tag} • {item.category}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 font-mono text-slate-600 tabular-nums">
+                        {item.serial_number}
+                      </td>
+                      <td className="py-3 pl-4 text-right font-semibold text-slate-800">
+                        {item.assigned_to_name}
+                      </td>
+                    </tr>
+                  ))}
+                  {recentAssigned.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="py-8 text-center text-slate-400 italic">
+                        Sin asignaciones recientes registradas.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>Total de sedes activas registradas:</span>
-            <span className="font-semibold text-slate-800">
-              {stats?.location_counts ? Object.keys(stats.location_counts).length : 0}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Lista de Alertas Recientes */}
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">Centro de Alertas Prioritarias</h3>
-            <p className="text-xs text-slate-400">
-              Notificaciones automáticas del motor de auditoría y vencimientos
-            </p>
-          </div>
-          <button
-            onClick={() => onNavigate('alerts')}
-            className="text-xs font-semibold text-sky-600 hover:text-sky-700 flex items-center gap-1"
-          >
-            <span>Ver todas las alertas ({alerts.length})</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="divide-y divide-slate-100">
-          {alerts.slice(0, 5).map((alt) => (
-            <div
-              key={alt.id}
-              className="px-6 py-3.5 flex items-center justify-between hover:bg-slate-50 transition"
-            >
-              <div className="flex items-center gap-3">
-                <span
-                  className={`w-2 h-2 rounded-full shrink-0 ${
-                    alt.severity === 'HIGH'
-                      ? 'bg-red-500'
-                      : alt.severity === 'MEDIUM'
-                      ? 'bg-amber-500'
-                      : 'bg-blue-500'
-                  }`}
-                />
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800">{alt.title}</h4>
-                  <p className="text-[11px] text-slate-500">{alt.description}</p>
-                </div>
-              </div>
-              <div className="text-right shrink-0 ml-4">
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                    alt.severity === 'HIGH'
-                      ? 'bg-red-50 text-red-700 border-red-200'
-                      : alt.severity === 'MEDIUM'
-                      ? 'bg-amber-50 text-amber-700 border-amber-200'
-                      : 'bg-blue-50 text-blue-700 border-blue-200'
-                  }`}
-                >
-                  {alt.severity}
+          {alerts.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 text-amber-700 font-medium">
+                <Clock className="w-4 h-4 shrink-0" />
+                <span>
+                  Hay <strong className="tabular-nums">{alerts.length}</strong> alerta(s) preventivas activas.
                 </span>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  {new Date(alt.date).toLocaleDateString()}
-                </p>
               </div>
-            </div>
-          ))}
-
-          {alerts.length === 0 && (
-            <div className="p-8 text-center text-xs text-slate-400">
-              No hay alertas activas en el sistema. Todo el inventario está al día.
+              <button
+                type="button"
+                onClick={() => onNavigate('alerts')}
+                className="font-bold text-amber-700 hover:text-amber-900 underline"
+              >
+                Revisar alertas
+              </button>
             </div>
           )}
         </div>
