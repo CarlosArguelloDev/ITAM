@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Plus, Minus, RotateCcw } from 'lucide-react';
+import { Plus, Minus, ArrowCounterClockwise } from '@phosphor-icons/react';
 
 interface SanJuanMapProps {
   opmCount: number;
@@ -133,7 +133,7 @@ export const SanJuanMap: React.FC<SanJuanMapProps> = ({
           aria-label="Acercar mapa"
           className="p-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-b border-slate-100 transition"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus weight="bold" className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
@@ -141,7 +141,7 @@ export const SanJuanMap: React.FC<SanJuanMapProps> = ({
           aria-label="Alejar mapa"
           className="p-1.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-b border-slate-100 transition"
         >
-          <Minus className="w-3.5 h-3.5" />
+          <Minus weight="bold" className="w-3.5 h-3.5" />
         </button>
         <button
           type="button"
@@ -152,7 +152,7 @@ export const SanJuanMap: React.FC<SanJuanMapProps> = ({
           aria-label="Ver ambas sedes"
           className="p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition"
         >
-          <RotateCcw className="w-3.5 h-3.5" />
+          <ArrowCounterClockwise weight="bold" className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>

@@ -10,33 +10,25 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
-  Building2,
+  Buildings as Building2,
   Warehouse,
-  Search,
-  RefreshCw,
+  MagnifyingGlass as Search,
+  ArrowsClockwise as RefreshCw,
   Plus,
   PlusCircle,
   Eye,
   ArrowLeft,
-  Laptop,
-  Monitor,
-  Smartphone,
-  Box,
-  Users,
-  List,
-  CircleDot,
+  UsersThree as Users,
+  ListBullets as List,
+  CirclesThree as CircleDot,
   Printer,
-  Edit3,
-  Trash2,
+  PencilSimple as Edit3,
+  Trash as Trash2,
   X,
   Check,
-  AlertCircle,
-  Wifi,
-  Server,
-  Headphones,
-  Barcode,
-  Cpu,
-} from 'lucide-react';
+  WarningCircle as AlertCircle,
+} from '@phosphor-icons/react';
+import { HardwareIcon } from '../components/HardwareIcon';
 import { api } from '../api';
 import {
   Asset,
@@ -90,21 +82,9 @@ const getCategoryBubbleStyle = (category: string) => {
   }
 };
 
-const renderSmallCatIcon = (category: string, className = 'w-4 h-4') => {
-  const c = category.toUpperCase();
-  if (c === 'LAPTOP') return <Laptop className={className} />;
-  if (c === 'WORKSTATION' || c === 'DOCKING') return <Cpu className={className} />;
-  if (c === 'MONITOR') return <Monitor className={className} />;
-  if (c === 'TELEFONO' || c === 'IPAD' || c === 'TELEFONO FIJO') return <Smartphone className={className} />;
-  if (c === 'IMPRESORA') return <Printer className={className} />;
-  if (c === 'SCANNER') return <Barcode className={className} />;
-  if (c === 'AUDIFONOS') return <Headphones className={className} />;
-  if (c === 'ACCESS POINT' || c === 'ROUTER') return <Wifi className={className} />;
-  if (c.includes('SWITCH') || c === 'FIREWALL' || c === 'SERVER' || c === 'NVR' || c === 'DVR') {
-    return <Server className={className} />;
-  }
-  return <Box className={className} />;
-};
+const renderSmallCatIcon = (category: string, className = 'w-4 h-4') => (
+  <HardwareIcon category={category} className={className} />
+);
 
 const DeptBubbleRootNode = ({ data }: any) => (
   <div className="px-5 py-3.5 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-sky-400 shadow-lg text-white flex items-center gap-3 min-w-[200px]">
@@ -144,7 +124,7 @@ const CategoryBubbleNode = ({ data }: any) => {
       className={`px-3.5 py-2.5 rounded-full border-2 shadow-sm cursor-pointer transition flex items-center gap-2.5 bg-white ${st.bg}`}
     >
       <Handle type="target" position={Position.Top} className="!bg-slate-400" />
-      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${st.dot}`}>
+      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-white border border-slate-200/80 shadow-2xs">
         {renderSmallCatIcon(data.category, 'w-4 h-4')}
       </div>
       <div className="pr-1">

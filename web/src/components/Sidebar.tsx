@@ -1,15 +1,16 @@
 import React from 'react';
+import type { Icon as PhosphorIcon } from '@phosphor-icons/react';
 import {
-  LayoutDashboard,
+  SquaresFour,
   Laptop,
-  Users,
-  ClipboardCheck,
-  AlertTriangle,
-  Bell,
+  UsersThree,
+  ClipboardText,
+  WarningCircle,
+  BellRinging,
   FileText,
-  Building2,
+  Buildings,
   X,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 
 export type NavView =
   | 'dashboard'
@@ -41,25 +42,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
 }) => {
   const primaryItems = [
-    { id: 'dashboard' as NavView, label: 'Inicio', icon: LayoutDashboard },
+    { id: 'dashboard' as NavView, label: 'Inicio', icon: SquaresFour },
     { id: 'assets' as NavView, label: 'Inventario', icon: Laptop },
-    { id: 'users' as NavView, label: 'Colaboradores', icon: Users },
-    { id: 'departments' as NavView, label: 'Deptos & Sites', icon: Building2 },
+    { id: 'users' as NavView, label: 'Colaboradores', icon: UsersThree },
+    { id: 'departments' as NavView, label: 'Deptos & Sites', icon: Buildings },
   ];
 
   const controlItems = [
-    { id: 'audits' as NavView, label: 'Auditorías', icon: ClipboardCheck },
+    { id: 'audits' as NavView, label: 'Auditorías', icon: ClipboardText },
     {
       id: 'discrepancies' as NavView,
       label: 'Discrepancias',
-      icon: AlertTriangle,
+      icon: WarningCircle,
       badge: discrepanciesCount > 0 ? discrepanciesCount : undefined,
       badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
     },
     {
       id: 'alerts' as NavView,
       label: 'Alertas',
-      icon: Bell,
+      icon: BellRinging,
       badge: alertsCount > 0 ? alertsCount : undefined,
       badgeColor: 'bg-rose-100 text-rose-800 border-rose-200',
     },
@@ -82,7 +83,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     items: {
       id: NavView;
       label: string;
-      icon: React.ComponentType<{ className?: string }>;
+      icon: PhosphorIcon;
       badge?: number;
       badgeColor?: string;
     }[]
@@ -108,7 +109,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="flex items-center gap-3">
               <Icon
-                className={`w-4 h-4 ${isActive ? 'text-[#5B4FE9]' : 'text-slate-400'}`}
+                weight="duotone"
+                className={`w-4.5 h-4.5 ${isActive ? 'text-[#5B4FE9]' : 'text-slate-400'}`}
               />
               <span>{item.label}</span>
             </div>

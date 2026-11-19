@@ -1,46 +1,24 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   Laptop,
-  Monitor,
-  Smartphone,
-  Printer,
-  Headphones,
-  Server,
-  Wifi,
-  Cpu,
-  Box,
-  AlertTriangle,
-  RefreshCw,
-  ChevronRight,
-  CheckCircle2,
+  WarningCircle,
+  ArrowsClockwise,
+  CaretRight,
+  CheckCircle,
   Wrench,
   Clock,
   Barcode,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { DashboardStats, AlertItem, Asset, DepartmentSummary } from '../types';
 import { api } from '../api';
 import { NavView } from '../components/Sidebar';
 import { SanJuanMap } from '../components/SanJuanMap';
+import { HardwareIcon, BrandTag } from '../components/HardwareIcon';
 
 interface DashboardViewProps {
   onNavigate: (view: NavView) => void;
   onOpenScanner: () => void;
 }
-
-const getCatIcon = (category: string) => {
-  const c = category.toUpperCase();
-  if (c === 'LAPTOP') return <Laptop className="w-4 h-4 text-[#5B4FE9]" />;
-  if (c === 'MONITOR') return <Monitor className="w-4 h-4 text-sky-600" />;
-  if (c === 'TELEFONO' || c === 'IPAD') return <Smartphone className="w-4 h-4 text-violet-600" />;
-  if (c === 'IMPRESORA') return <Printer className="w-4 h-4 text-amber-600" />;
-  if (c === 'AUDIFONOS') return <Headphones className="w-4 h-4 text-emerald-600" />;
-  if (c === 'ACCESS POINT' || c === 'ROUTER') return <Wifi className="w-4 h-4 text-cyan-600" />;
-  if (c.includes('SWITCH') || c === 'FIREWALL' || c === 'SERVER') {
-    return <Server className="w-4 h-4 text-indigo-600" />;
-  }
-  if (c === 'WORKSTATION' || c === 'DOCKING') return <Cpu className="w-4 h-4 text-slate-600" />;
-  return <Box className="w-4 h-4 text-slate-500" />;
-};
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpenScanner }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -134,7 +112,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
             aria-label="Actualizar métricas"
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-[#E6E8F0] text-xs font-semibold text-slate-700 hover:bg-slate-50 transition active:scale-[0.98]"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <ArrowsClockwise className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Actualizar</span>
           </button>
           <button
@@ -142,7 +120,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
             onClick={onOpenScanner}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#5B4FE9] hover:bg-[#4B3FD8] text-white text-xs font-semibold shadow-xs transition active:scale-[0.98]"
           >
-            <Barcode className="w-3.5 h-3.5" />
+            <Barcode weight="duotone" className="w-3.5 h-3.5" />
             <span>Escanear</span>
           </button>
         </div>
@@ -170,7 +148,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
                 className="inline-flex items-center gap-1.5 bg-[#5B4FE9] hover:bg-[#4B3FD8] text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition active:scale-[0.98]"
               >
                 <span>Explorar Todos</span>
-                <ChevronRight className="w-3.5 h-3.5" />
+                <CaretRight weight="bold" className="w-3.5 h-3.5" />
               </button>
             </div>
 
@@ -204,7 +182,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
                 <p className="text-xs font-medium text-slate-500 mt-0.5">Disponibles</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-5 h-5" />
+                <CheckCircle weight="duotone" className="w-5 h-5" />
               </div>
             </button>
 
@@ -220,7 +198,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
                 <p className="text-xs font-medium text-slate-500 mt-0.5">En Uso</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <Laptop className="w-5 h-5" />
+                <Laptop weight="duotone" className="w-5 h-5" />
               </div>
             </button>
 
@@ -236,7 +214,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
                 <p className="text-xs font-medium text-slate-500 mt-0.5">Mantenimiento</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                <Wrench className="w-5 h-5" />
+                <Wrench weight="duotone" className="w-5 h-5" />
               </div>
             </button>
 
@@ -252,7 +230,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
                 <p className="text-xs font-medium text-slate-500 mt-0.5">Pendientes</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5" />
+                <WarningCircle weight="duotone" className="w-5 h-5" />
               </div>
             </button>
           </div>
@@ -372,8 +350,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
                 className="w-full py-3 flex items-center justify-between gap-3 hover:bg-slate-50/70 px-2 rounded-lg transition text-left"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/70 flex items-center justify-center shrink-0">
-                    {getCatIcon(cat.name)}
+                  <div className="w-8 h-8 rounded-lg bg-[#F6F7FB] border border-[#E6E8F0] flex items-center justify-center shrink-0">
+                    <HardwareIcon category={cat.name} className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs font-semibold text-slate-800 truncate">{cat.name}</div>
@@ -424,11 +402,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-[#F6F7FB] border border-[#E6E8F0] flex items-center justify-center shrink-0">
-                            {getCatIcon(item.category)}
+                            <HardwareIcon category={item.category} className="w-4 h-4" />
                           </div>
                           <div className="min-w-0">
-                            <div className="font-semibold text-slate-800 truncate max-w-[200px]">
-                              {item.brand} {item.model}
+                            <div className="flex items-center gap-1.5">
+                              <BrandTag brand={item.brand} />
+                              <span className="font-semibold text-slate-800 truncate max-w-[160px]">
+                                {item.model || item.category}
+                              </span>
                             </div>
                             <div className="text-[11px] text-slate-400 font-mono">
                               {item.asset_tag} • {item.category}
@@ -459,7 +440,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
           {alerts.length > 0 && (
             <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 text-amber-700 font-medium">
-                <Clock className="w-4 h-4 shrink-0" />
+                <Clock weight="duotone" className="w-4 h-4 shrink-0" />
                 <span>
                   Hay <strong className="tabular-nums">{alerts.length}</strong> alerta(s) preventivas activas.
                 </span>

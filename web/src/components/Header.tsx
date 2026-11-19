@@ -1,5 +1,5 @@
 import React from 'react';
-import { Barcode, Menu } from 'lucide-react';
+import { Barcode, List } from '@phosphor-icons/react';
 
 interface HeaderProps {
   title: string;
@@ -24,7 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
             aria-label="Abrir menú de navegación"
             className="lg:hidden p-2 rounded-xl border border-[#E6E8F0] text-slate-600 hover:bg-slate-50"
           >
-            <Menu className="w-4 h-4" />
+            <List weight="bold" className="w-4 h-4" />
           </button>
         )}
         <div className="min-w-0">
@@ -45,7 +45,7 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={onOpenScanner}
           className="flex items-center gap-2 bg-[#5B4FE9] hover:bg-[#4B3FD8] text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-xs transition-all active:scale-[0.98]"
         >
-          <Barcode className="w-4 h-4" />
+          <Barcode weight="duotone" className="w-4 h-4" />
           <span className="hidden sm:inline">Escanear Código</span>
           <span className="sm:hidden">Escanear</span>
         </button>
