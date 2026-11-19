@@ -1,16 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import {
-  ReactFlow,
-  Controls,
-  Background,
-  applyNodeChanges,
-  applyEdgeChanges,
-  Node,
-  Edge,
-  Handle,
-  Position,
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+import React, { useState, useEffect } from 'react';
 import {
   Building2,
   Warehouse,
@@ -26,14 +14,13 @@ import {
   Box,
   Users,
   List,
-  Network,
+  CircleDot,
   Printer,
   Edit3,
   Trash2,
   X,
   Check,
   AlertCircle,
-  User as UserIcon,
 } from 'lucide-react';
 import { api } from '../api';
 import {
@@ -44,114 +31,56 @@ import {
 } from '../types';
 import { AssetFormModal } from '../components/AssetFormModal';
 
-// --- Nodos React Flow ---
-const DeptRootNode = ({ data }: any) => (
-  <div className="px-5 py-3.5 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-sky-400 shadow-lg min-w-[230px] text-white">
-    <Handle type="source" position={Position.Bottom} className="!bg-sky-400" />
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center shrink-0">
-        {data.is_site ? (
-          <Warehouse className="w-5 h-5 text-sky-300" />
-        ) : (
-          <Building2 className="w-5 h-5 text-sky-300" />
-        )}
-      </div>
-      <div>
-        <span className="text-[10px] uppercase tracking-wider font-bold text-sky-300 block">
-          {data.is_site ? 'Site / Bodega' : 'Departamento'}
-        </span>
-        <div className="text-sm font-bold leading-tight">{data.name}</div>
-        <div className="text-[11px] text-slate-300 mt-0.5">
-          {data.direct_count} directo(s) • {data.users_count} persona(s)
-        </div>
-      </div>
-    </div>
-  </div>
-);
+const getCategoryBubbleStyle = (category: string) => {
+  switch (category) {
+    case 'LAPTOP':
+    case 'WORKSTATION':
+      return {
+        bg: 'bg-sky-500/15 hover:bg-sky-500/25 border-sky-400 text-sky-900',
+        dot: 'bg-sky-600 text-white',
+      };
+    case 'MONITOR':
+      return {
+        bg: 'bg-indigo-500/15 hover:bg-indigo-500/25 border-indigo-400 text-indigo-900',
+        dot: 'bg-indigo-600 text-white',
+      };
+    case 'TELEFONO':
+    case 'IPAD':
+    case 'SIM-CARD':
+      return {
+        bg: 'bg-violet-500/15 hover:bg-violet-500/25 border-violet-400 text-violet-900',
+        dot: 'bg-violet-600 text-white',
+      };
+    case 'IMPRESORA':
+    case 'SCANNER':
+      return {
+        bg: 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-400 text-amber-900',
+        dot: 'bg-amber-600 text-white',
+      };
+    case 'SWITCH':
+    case 'SWITCH INDUSTRIAL':
+    case 'ACCESS POINT':
+    case 'FIREWALL':
+    case 'ROUTER':
+    case 'SERVER':
+      return {
+        bg: 'bg-cyan-500/15 hover:bg-cyan-500/25 border-cyan-400 text-cyan-900',
+        dot: 'bg-cyan-600 text-white',
+      };
+    default:
+      return {
+        bg: 'bg-slate-500/10 hover:bg-slate-500/20 border-slate-300 text-slate-800',
+        dot: 'bg-slate-600 text-white',
+      };
+  }
+};
 
-const DeptUserNode = ({ data }: any) => (
-  <div className="px-4 py-3 rounded-2xl bg-white border-2 border-emerald-500 shadow-md min-w-[220px]">
-    <Handle type="source" position={Position.Bottom} className="!bg-emerald-500" />
-    <div className="flex items-center gap-2.5">
-      <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm shrink-0">
-        <UserIcon className="w-4 h-4" />
-      </div>
-      <div className="min-w-0">
-        <div className="text-xs font-bold text-slate-900 truncate">{data.full_name}</div>
-        <div className="text-[10px] font-mono text-slate-500">{data.employee_code}</div>
-        <div className="text-[10px] text-emerald-700 font-semibold">
-          {data.department} • {data.location}
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const DeptLaptopNode = ({ data }: any) => (
-  <div className="px-4 py-3 rounded-xl bg-white border-2 border-sky-500 shadow-sm min-w-[210px]">
-    <Handle type="target" position={Position.Top} className="!bg-sky-500" />
-    <Handle type="source" position={Position.Bottom} className="!bg-sky-500" />
-    <div className="flex items-center gap-2.5">
-      <div className="p-2 rounded-lg bg-sky-50 text-sky-600 shrink-0">
-        <Laptop className="w-4 h-4" />
-      </div>
-      <div className="min-w-0">
-        <div className="text-[10px] font-bold text-sky-700 uppercase">{data.category}</div>
-        <div className="text-xs font-bold text-slate-900 truncate">
-          {data.brand} {data.model}
-        </div>
-        <div className="text-[10px] font-mono text-slate-500 truncate">
-          {data.asset_tag} • {data.serial}
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const DeptPhoneNode = ({ data }: any) => (
-  <div className="px-3.5 py-2.5 rounded-xl bg-white border-2 border-violet-500 shadow-sm min-w-[195px]">
-    <Handle type="target" position={Position.Top} className="!bg-violet-500" />
-    <Handle type="source" position={Position.Bottom} className="!bg-violet-500" />
-    <div className="flex items-center gap-2">
-      <div className="p-1.5 rounded-lg bg-violet-50 text-violet-600 shrink-0">
-        <Smartphone className="w-4 h-4" />
-      </div>
-      <div className="min-w-0">
-        <div className="text-[10px] font-bold text-violet-700 uppercase">{data.category}</div>
-        <div className="text-xs font-bold text-slate-900 truncate">
-          {data.brand} {data.model}
-        </div>
-        <div className="text-[10px] font-mono text-slate-500 truncate">
-          {data.asset_tag} • {data.serial}
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const DeptPeripheralNode = ({ data }: any) => (
-  <div className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 shadow-xs min-w-[190px]">
-    <Handle type="target" position={Position.Top} className="!bg-slate-400" />
-    <div className="flex items-center gap-2">
-      <div className="p-1.5 rounded-lg bg-slate-100 text-slate-600 shrink-0">
-        {data.category === 'MONITOR' ? (
-          <Monitor className="w-3.5 h-3.5" />
-        ) : (
-          <Box className="w-3.5 h-3.5" />
-        )}
-      </div>
-      <div className="min-w-0">
-        <div className="text-[10px] font-bold text-slate-500 uppercase">{data.category}</div>
-        <div className="text-xs font-semibold text-slate-900 truncate">
-          {data.brand} {data.model}
-        </div>
-        <div className="text-[10px] font-mono text-slate-500 truncate">
-          {data.asset_tag} • {data.serial}
-        </div>
-      </div>
-    </div>
-  </div>
-);
+const renderSmallCatIcon = (category: string) => {
+  if (category === 'LAPTOP' || category === 'WORKSTATION') return <Laptop className="w-3.5 h-3.5" />;
+  if (category === 'MONITOR') return <Monitor className="w-3.5 h-3.5" />;
+  if (category === 'TELEFONO' || category === 'IPAD') return <Smartphone className="w-3.5 h-3.5" />;
+  return <Box className="w-3.5 h-3.5" />;
+};
 
 export const DepartmentsView: React.FC = () => {
   const [summaries, setSummaries] = useState<DepartmentSummary[]>([]);
@@ -161,9 +90,8 @@ export const DepartmentsView: React.FC = () => {
 
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [diagramData, setDiagramData] = useState<DepartmentDiagramResponse | null>(null);
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
   const [activeTab, setActiveTab] = useState<'LIST' | 'DIAGRAM'>('LIST');
+  const [selectedBubbleAsset, setSelectedBubbleAsset] = useState<Asset | null>(null);
 
   // Modales
   const [newDeptModalOpen, setNewDeptModalOpen] = useState(false);
@@ -183,26 +111,6 @@ export const DepartmentsView: React.FC = () => {
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [printFeedback, setPrintFeedback] = useState<{ id: string; ok: boolean; msg: string } | null>(null);
-
-  const nodeTypes = useMemo(
-    () => ({
-      deptNode: DeptRootNode,
-      userNode: DeptUserNode,
-      laptopNode: DeptLaptopNode,
-      phoneNode: DeptPhoneNode,
-      peripheralNode: DeptPeripheralNode,
-    }),
-    []
-  );
-
-  const onNodesChange = useCallback(
-    (changes: any) => setNodes((nds) => applyNodeChanges(changes, nds)),
-    []
-  );
-  const onEdgesChange = useCallback(
-    (changes: any) => setEdges((eds) => applyEdgeChanges(changes, eds)),
-    []
-  );
 
   useEffect(() => {
     loadSummaries();
@@ -230,8 +138,7 @@ export const DepartmentsView: React.FC = () => {
     try {
       const res = await api.getDepartmentDiagram(deptName);
       setDiagramData(res);
-      setNodes((res.nodes || []) as unknown as Node[]);
-      setEdges((res.edges || []) as unknown as Edge[]);
+      setSelectedBubbleAsset(null);
     } catch (err) {
       console.error('Error cargando diagrama de departamento:', err);
     }
@@ -875,8 +782,8 @@ export const DepartmentsView: React.FC = () => {
               : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
           }`}
         >
-          <Network className="w-4 h-4" />
-          <span>Diagrama del Departamento y Personas</span>
+          <CircleDot className="w-4 h-4" />
+          <span>Conjuntos de Equipos</span>
         </button>
       </div>
 
@@ -1026,25 +933,185 @@ export const DepartmentsView: React.FC = () => {
         </div>
       )}
 
-      {/* Pestaña 2: Diagrama React Flow */}
-      {activeTab === 'DIAGRAM' && (
-        <div
-          className="w-full h-[650px] min-h-[600px] bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden"
-          style={{ width: '100%', height: '650px' }}
-        >
-          <ReactFlow
-            key={selectedDept}
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            fitView
-            fitViewOptions={{ padding: 0.2 }}
-          >
-            <Background color="#cbd5e1" gap={20} />
-            <Controls />
-          </ReactFlow>
+      {/* Pestaña 2: Mapa de Conjuntos (Bolitas agrupadas sin conexiones) */}
+      {activeTab === 'DIAGRAM' && diagramData && (
+        <div className="space-y-6">
+          {/* Detalle rápido de la bolita seleccionada */}
+          {selectedBubbleAsset && (
+            <div className="bg-white p-4 rounded-2xl border-2 border-sky-300 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                    getCategoryBubbleStyle(selectedBubbleAsset.category).dot
+                  }`}
+                >
+                  {renderSmallCatIcon(selectedBubbleAsset.category)}
+                </div>
+                <div className="text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-slate-900">
+                      {selectedBubbleAsset.asset_tag}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                      {selectedBubbleAsset.category}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700">
+                      {selectedBubbleAsset.status}
+                    </span>
+                  </div>
+                  <div className="text-slate-600 mt-0.5">
+                    {selectedBubbleAsset.brand} {selectedBubbleAsset.model} • S/N:{' '}
+                    <span className="font-mono font-semibold text-slate-800">
+                      {selectedBubbleAsset.serial_number}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePrintBrother(selectedBubbleAsset.id, selectedBubbleAsset.asset_tag)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Etiqueta</span>
+                </button>
+                <button
+                  onClick={() => setEditingAsset(selectedBubbleAsset)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 text-xs font-bold text-amber-800 hover:bg-amber-100"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Editar</span>
+                </button>
+                <button
+                  onClick={() => setSelectedBubbleAsset(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Conjunto 1: Equipos propios del Departamento / Site */}
+          <div className="bg-gradient-to-br from-sky-50/80 to-white p-6 rounded-[2rem] border-2 border-sky-200 shadow-sm space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-full bg-sky-600 text-white flex items-center justify-center shadow-sm">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-700 block">
+                    Conjunto del Área / Site
+                  </span>
+                  <h4 className="text-sm font-bold text-slate-900">{diagramData.department}</h4>
+                </div>
+              </div>
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-white text-sky-800 border border-sky-200 shadow-2xs">
+                {diagramData.direct_assets.length} equipo(s) directos
+              </span>
+            </div>
+
+            {diagramData.direct_assets.length === 0 ? (
+              <div className="py-6 text-center text-xs text-slate-400 italic">
+                Sin equipos asignados directamente sin colaborador en {diagramData.department}.
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2.5 pt-1">
+                {diagramData.direct_assets.map((a) => {
+                  const st = getCategoryBubbleStyle(a.category);
+                  const isSel = selectedBubbleAsset?.id === a.id;
+                  return (
+                    <button
+                      key={a.id}
+                      onClick={() => setSelectedBubbleAsset(a)}
+                      title={`${a.category} • ${a.brand} ${a.model} • S/N: ${a.serial_number}`}
+                      className={`inline-flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-full border text-xs transition shadow-2xs ${
+                        st.bg
+                      } ${isSel ? 'ring-2 ring-sky-600 ring-offset-1' : ''}`}
+                    >
+                      <span
+                        className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${st.dot}`}
+                      >
+                        {renderSmallCatIcon(a.category)}
+                      </span>
+                      <span className="font-mono font-bold text-[11px]">{a.asset_tag}</span>
+                      <span className="text-[11px] opacity-80 truncate max-w-[140px]">
+                        {a.model || a.category}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Conjuntos Separados: Cada Colaborador del Departamento */}
+          {diagramData.user_groups.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wide px-1">
+                <Users className="w-4 h-4 text-emerald-600" />
+                <span>
+                  Conjuntos por Colaborador en {diagramData.department} ({diagramData.user_groups.length})
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {diagramData.user_groups.map((grp) => (
+                  <div
+                    key={grp.user.id}
+                    className="bg-gradient-to-br from-emerald-50/70 to-white p-5 rounded-[2rem] border-2 border-emerald-200 shadow-sm space-y-3.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                          {grp.user.full_name.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-slate-900 truncate">
+                            {grp.user.full_name}
+                          </div>
+                          <div className="text-[10px] font-mono text-slate-500">
+                            {grp.user.employee_code}
+                            {grp.user.position ? ` • ${grp.user.position}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white text-emerald-700 border border-emerald-200 shrink-0">
+                        {grp.assets.length}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {grp.assets.map((a) => {
+                        const st = getCategoryBubbleStyle(a.category);
+                        const isSel = selectedBubbleAsset?.id === a.id;
+                        return (
+                          <button
+                            key={a.id}
+                            onClick={() => setSelectedBubbleAsset(a)}
+                            title={`${a.category} • ${a.brand} ${a.model} • S/N: ${a.serial_number}`}
+                            className={`inline-flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full border text-xs transition ${
+                              st.bg
+                            } ${isSel ? 'ring-2 ring-emerald-600 ring-offset-1' : ''}`}
+                          >
+                            <span
+                              className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${st.dot}`}
+                            >
+                              {renderSmallCatIcon(a.category)}
+                            </span>
+                            <span className="font-mono font-bold text-[10px]">{a.asset_tag}</span>
+                            <span className="text-[10px] opacity-80 truncate max-w-[110px]">
+                              {a.category}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
