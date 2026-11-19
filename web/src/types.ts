@@ -49,6 +49,7 @@ export interface DepartmentSummary {
   user_assets: number;
   users_count: number;
   is_site: boolean;
+  area_type?: 'SITE' | 'MEETING_ROOM' | 'SHARED_SPACE' | 'DEPARTMENT';
 }
 
 export interface DepartmentUserGroup {

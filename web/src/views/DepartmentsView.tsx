@@ -157,7 +157,7 @@ export const DepartmentsView: React.FC = () => {
   const [summaries, setSummaries] = useState<DepartmentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'ALL' | 'SITES' | 'DEPTS'>('ALL');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'SITES' | 'SPACES' | 'DEPTS'>('ALL');
 
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [diagramData, setDiagramData] = useState<DepartmentDiagramResponse | null>(null);
@@ -327,9 +327,61 @@ export const DepartmentsView: React.FC = () => {
     }
   };
 
+  const handleDeleteDept = async (deptName: string) => {
+    if (
+      !confirm(
+        `¿Eliminar "${deptName}"?\nSus equipos sin persona asignada quedarán libres (AVAILABLE) para reasignarlos a otro departamento o lugar.`
+      )
+    ) {
+      return;
+    }
+    try {
+      await api.deleteDepartment(deptName);
+      await loadSummaries();
+    } catch (err: any) {
+      alert(err.message || 'No se pudo eliminar el departamento/lugar');
+    }
+  };
+
+  const getAreaBadge = (d: DepartmentSummary) => {
+    const t = d.area_type || (d.is_site ? 'SITE' : 'DEPARTMENT');
+    switch (t) {
+      case 'SITE':
+        return {
+          label: 'Site / Bodega',
+          badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+          iconWrap: 'bg-amber-100 text-amber-700',
+          isSiteIcon: true,
+        };
+      case 'MEETING_ROOM':
+        return {
+          label: 'Sala de Juntas',
+          badgeClass: 'bg-violet-50 text-violet-800 border-violet-200',
+          iconWrap: 'bg-violet-100 text-violet-700',
+          isSiteIcon: false,
+        };
+      case 'SHARED_SPACE':
+        return {
+          label: 'Espacio Compartido',
+          badgeClass: 'bg-teal-50 text-teal-800 border-teal-200',
+          iconWrap: 'bg-teal-100 text-teal-700',
+          isSiteIcon: false,
+        };
+      default:
+        return {
+          label: 'Departamento',
+          badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
+          iconWrap: 'bg-sky-100 text-sky-700',
+          isSiteIcon: false,
+        };
+    }
+  };
+
   const filteredSummaries = summaries.filter((d) => {
-    if (typeFilter === 'SITES' && !d.is_site) return false;
-    if (typeFilter === 'DEPTS' && d.is_site) return false;
+    const t = d.area_type || (d.is_site ? 'SITE' : 'DEPARTMENT');
+    if (typeFilter === 'SITES' && t !== 'SITE') return false;
+    if (typeFilter === 'SPACES' && t !== 'MEETING_ROOM' && t !== 'SHARED_SPACE') return false;
+    if (typeFilter === 'DEPTS' && t !== 'DEPARTMENT') return false;
     if (searchQuery.trim()) {
       return d.name.toLowerCase().includes(searchQuery.toLowerCase());
     }
@@ -419,6 +471,14 @@ export const DepartmentsView: React.FC = () => {
               Sites / Bodegas
             </button>
             <button
+              onClick={() => setTypeFilter('SPACES')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                typeFilter === 'SPACES' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'
+              }`}
+            >
+              Salas / Espacios
+            </button>
+            <button
               onClick={() => setTypeFilter('DEPTS')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                 typeFilter === 'DEPTS' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'
@@ -445,7 +505,9 @@ export const DepartmentsView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
-                {filteredSummaries.map((d) => (
+                {filteredSummaries.map((d) => {
+                  const badge = getAreaBadge(d);
+                  return (
                   <tr
                     key={d.name}
                     onClick={() => setSelectedDept(d.name)}
@@ -454,13 +516,9 @@ export const DepartmentsView: React.FC = () => {
                     <td className="py-3.5 px-6">
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                            d.is_site
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-sky-100 text-sky-700'
-                          }`}
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${badge.iconWrap}`}
                         >
-                          {d.is_site ? (
+                          {badge.isSiteIcon ? (
                             <Warehouse className="w-4 h-4" />
                           ) : (
                             <Building2 className="w-4 h-4" />
@@ -473,13 +531,9 @@ export const DepartmentsView: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4">
                       <span
-                        className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${
-                          d.is_site
-                            ? 'bg-amber-50 text-amber-800 border-amber-200'
-                            : 'bg-slate-100 text-slate-700 border-slate-200'
-                        }`}
+                        className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${badge.badgeClass}`}
                       >
-                        {d.is_site ? 'Site / Bodega' : 'Departamento'}
+                        {badge.label}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-center font-bold text-sky-700">
@@ -518,10 +572,21 @@ export const DepartmentsView: React.FC = () => {
                           <PlusCircle className="w-3.5 h-3.5" />
                           <span>Asignar</span>
                         </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteDept(d.name);
+                          }}
+                          className="inline-flex items-center justify-center p-1.5 text-red-600 hover:bg-red-50 border border-red-200 rounded-lg transition"
+                          title="Eliminar y liberar equipos"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -676,7 +741,7 @@ export const DepartmentsView: React.FC = () => {
                       {a.category}
                     </span>
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-sky-50 text-sky-700">
-                      Depto actual: {a.department || 'N/A'}
+                      Depto actual: {a.department || 'Sin asignar'}
                     </span>
                   </div>
                   <div className="text-slate-600 mt-0.5 truncate">

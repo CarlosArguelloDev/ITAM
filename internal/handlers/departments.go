@@ -21,6 +21,7 @@ type DepartmentSummary struct {
 	UserAssets   int    `json:"user_assets"`
 	UsersCount   int    `json:"users_count"`
 	IsSite       bool   `json:"is_site"`
+	AreaType     string `json:"area_type"`
 }
 
 type DepartmentUserGroup struct {
@@ -49,9 +50,22 @@ type CreateDepartmentRequest struct {
 	Name string `json:"name"`
 }
 
-func isSiteDepartment(name string) bool {
+func getAreaType(name string) string {
 	u := strings.ToUpper(strings.TrimSpace(name))
-	return strings.Contains(u, "SITE") || strings.Contains(u, "BODEGA") || strings.Contains(u, "STOCK") || strings.Contains(u, "RACK") || u == "IT"
+	switch u {
+	case "LELE", "PEÑA", "PENA":
+		return "MEETING_ROOM"
+	case "CO-WORKING", "COWORKING":
+		return "SHARED_SPACE"
+	}
+	if strings.Contains(u, "SITE") || strings.Contains(u, "BODEGA") || strings.Contains(u, "STOCK") {
+		return "SITE"
+	}
+	return "DEPARTMENT"
+}
+
+func isSiteDepartment(name string) bool {
+	return getAreaType(name) == "SITE"
 }
 
 // ListDepartmentSummaries devuelve departamentos y sitios/bodegas con conteos de activos directos vs en colaboradores
@@ -61,14 +75,16 @@ func (h *AppHandler) ListDepartmentSummaries(w http.ResponseWriter, r *http.Requ
 	ensureDept := func(name string) *DepartmentSummary {
 		clean := strings.TrimSpace(name)
 		if clean == "" {
-			clean = "GENERAL"
+			return nil
 		}
 		if d, ok := deptSet[clean]; ok {
 			return d
 		}
+		areaType := getAreaType(clean)
 		d := &DepartmentSummary{
-			Name:   clean,
-			IsSite: isSiteDepartment(clean),
+			Name:     clean,
+			IsSite:   areaType == "SITE",
+			AreaType: areaType,
 		}
 		deptSet[clean] = d
 		return d
@@ -85,12 +101,12 @@ func (h *AppHandler) ListDepartmentSummaries(w http.ResponseWriter, r *http.Requ
 	}
 
 	if rows, err := h.DB.Query(`
-		SELECT COALESCE(NULLIF(TRIM(department), ''), 'GENERAL') AS dept,
+		SELECT TRIM(department) AS dept,
 		       COUNT(*) AS total,
 		       SUM(CASE WHEN assigned_to_user_id IS NULL OR assigned_to_user_id = '' THEN 1 ELSE 0 END) AS direct_cnt,
 		       SUM(CASE WHEN assigned_to_user_id IS NOT NULL AND assigned_to_user_id != '' THEN 1 ELSE 0 END) AS user_cnt
 		FROM assets
-		WHERE status != 'RETIRED'
+		WHERE status != 'RETIRED' AND TRIM(COALESCE(department, '')) != ''
 		GROUP BY dept
 	`); err == nil {
 		defer rows.Close()
@@ -98,18 +114,19 @@ func (h *AppHandler) ListDepartmentSummaries(w http.ResponseWriter, r *http.Requ
 			var dept string
 			var total, directCnt, userCnt int
 			if err := rows.Scan(&dept, &total, &directCnt, &userCnt); err == nil {
-				d := ensureDept(dept)
-				d.TotalAssets = total
-				d.DirectAssets = directCnt
-				d.UserAssets = userCnt
+				if d := ensureDept(dept); d != nil {
+					d.TotalAssets = total
+					d.DirectAssets = directCnt
+					d.UserAssets = userCnt
+				}
 			}
 		}
 	}
 
 	if rows, err := h.DB.Query(`
-		SELECT COALESCE(NULLIF(TRIM(department), ''), 'GENERAL') AS dept, COUNT(*)
+		SELECT TRIM(department) AS dept, COUNT(*)
 		FROM users
-		WHERE is_active = 1
+		WHERE is_active = 1 AND TRIM(COALESCE(department, '')) != ''
 		GROUP BY dept
 	`); err == nil {
 		defer rows.Close()
@@ -117,8 +134,9 @@ func (h *AppHandler) ListDepartmentSummaries(w http.ResponseWriter, r *http.Requ
 			var dept string
 			var cnt int
 			if err := rows.Scan(&dept, &cnt); err == nil {
-				d := ensureDept(dept)
-				d.UsersCount = cnt
+				if d := ensureDept(dept); d != nil {
+					d.UsersCount = cnt
+				}
 			}
 		}
 	}
@@ -155,6 +173,52 @@ func (h *AppHandler) CreateDepartment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	JSONResponse(w, http.StatusCreated, map[string]string{"id": id, "name": name})
+}
+
+// DeleteDepartment elimina un departamento/sitio y libera sus activos sin usuario para reasignación
+func (h *AppHandler) DeleteDepartment(w http.ResponseWriter, r *http.Request) {
+	rawName := chi.URLParam(r, "name")
+	deptName, err := url.PathUnescape(rawName)
+	if err != nil {
+		deptName = rawName
+	}
+	deptName = strings.TrimSpace(deptName)
+	if deptName == "" {
+		ErrorResponse(w, http.StatusBadRequest, "Nombre de departamento requerido")
+		return
+	}
+
+	tx, err := h.DB.Begin()
+	if err != nil {
+		ErrorResponse(w, http.StatusInternalServerError, "Error: "+err.Error())
+		return
+	}
+	defer tx.Rollback()
+
+	// Liberar activos directos de ese departamento/sitio para poder reasignarlos
+	resAssets, err := tx.Exec(`
+		UPDATE assets
+		SET department = '', status = 'AVAILABLE', assigned_to_user_id = NULL, parent_asset_id = NULL
+		WHERE department = ? AND (assigned_to_user_id IS NULL OR assigned_to_user_id = '')
+	`, deptName)
+	if err != nil {
+		ErrorResponse(w, http.StatusInternalServerError, "Error al liberar activos: "+err.Error())
+		return
+	}
+	releasedCount, _ := resAssets.RowsAffected()
+
+	// Si hubiera activos con usuario asignado que aún tenían este departamento, limpiar solo si no tienen usuario
+	_, _ = tx.Exec(`DELETE FROM departments WHERE name = ?`, deptName)
+
+	if err := tx.Commit(); err != nil {
+		ErrorResponse(w, http.StatusInternalServerError, "Error commit: "+err.Error())
+		return
+	}
+
+	JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"message":         fmt.Sprintf("Departamento/sitio %s eliminado", deptName),
+		"released_assets": releasedCount,
+	})
 }
 
 // AssignAssetToDepartment asigna un activo directamente a un departamento o bodega/site (desvinculando usuario)

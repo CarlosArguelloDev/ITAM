@@ -48,6 +48,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ name }),
     }),
+  deleteDepartment: (name: string) =>
+    fetchJSON<{ message: string; released_assets: number }>(
+      `/departments/${encodeURIComponent(name)}`,
+      { method: 'DELETE' }
+    ),
   getDepartmentDiagram: (name: string) =>
     fetchJSON<DepartmentDiagramResponse>(`/departments/${encodeURIComponent(name)}/diagram`),
   assignAssetToDepartment: (payload: {

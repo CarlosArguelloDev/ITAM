@@ -116,6 +116,7 @@ func main() {
 		api.Post("/departments", appHandler.CreateDepartment)
 		api.Get("/departments/summary", appHandler.ListDepartmentSummaries)
 		api.Get("/departments/{name}/diagram", appHandler.GetDepartmentDiagram)
+		api.Delete("/departments/{name}", appHandler.DeleteDepartment)
 
 		// Gestión de Usuarios
 		api.Route("/users", func(u chi.Router) {
