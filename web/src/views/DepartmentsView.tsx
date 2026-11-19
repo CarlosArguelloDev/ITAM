@@ -1,4 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  ReactFlow,
+  Controls,
+  Background,
+  Node,
+  Edge,
+  Handle,
+  Position,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import {
   Building2,
   Warehouse,
@@ -21,6 +31,11 @@ import {
   X,
   Check,
   AlertCircle,
+  Wifi,
+  Server,
+  Headphones,
+  Barcode,
+  Cpu,
 } from 'lucide-react';
 import { api } from '../api';
 import {
@@ -75,11 +90,69 @@ const getCategoryBubbleStyle = (category: string) => {
   }
 };
 
-const renderSmallCatIcon = (category: string) => {
-  if (category === 'LAPTOP' || category === 'WORKSTATION') return <Laptop className="w-3.5 h-3.5" />;
-  if (category === 'MONITOR') return <Monitor className="w-3.5 h-3.5" />;
-  if (category === 'TELEFONO' || category === 'IPAD') return <Smartphone className="w-3.5 h-3.5" />;
-  return <Box className="w-3.5 h-3.5" />;
+const renderSmallCatIcon = (category: string, className = 'w-4 h-4') => {
+  const c = category.toUpperCase();
+  if (c === 'LAPTOP') return <Laptop className={className} />;
+  if (c === 'WORKSTATION' || c === 'DOCKING') return <Cpu className={className} />;
+  if (c === 'MONITOR') return <Monitor className={className} />;
+  if (c === 'TELEFONO' || c === 'IPAD' || c === 'TELEFONO FIJO') return <Smartphone className={className} />;
+  if (c === 'IMPRESORA') return <Printer className={className} />;
+  if (c === 'SCANNER') return <Barcode className={className} />;
+  if (c === 'AUDIFONOS') return <Headphones className={className} />;
+  if (c === 'ACCESS POINT' || c === 'ROUTER') return <Wifi className={className} />;
+  if (c.includes('SWITCH') || c === 'FIREWALL' || c === 'SERVER' || c === 'NVR' || c === 'DVR') {
+    return <Server className={className} />;
+  }
+  return <Box className={className} />;
+};
+
+const DeptBubbleRootNode = ({ data }: any) => (
+  <div className="px-5 py-3.5 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-sky-400 shadow-lg text-white flex items-center gap-3 min-w-[200px]">
+    <Handle type="source" position={Position.Bottom} className="!bg-sky-400" />
+    <div className="w-10 h-10 rounded-full bg-sky-500/25 border border-sky-400/50 flex items-center justify-center shrink-0">
+      {data.is_site ? <Warehouse className="w-5 h-5 text-sky-300" /> : <Building2 className="w-5 h-5 text-sky-300" />}
+    </div>
+    <div>
+      <div className="text-[10px] font-bold uppercase tracking-wider text-sky-300">
+        {data.is_site ? 'Site / Bodega' : 'Departamento'}
+      </div>
+      <div className="text-sm font-bold leading-tight">{data.name}</div>
+      <div className="text-[11px] text-slate-300">{data.total} equipo(s) directos</div>
+    </div>
+  </div>
+);
+
+const UserBubbleRootNode = ({ data }: any) => (
+  <div className="px-4 py-2.5 rounded-full bg-white border-2 border-emerald-500 shadow-md flex items-center gap-2.5 min-w-[190px]">
+    <Handle type="source" position={Position.Bottom} className="!bg-emerald-500" />
+    <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+      {String(data.full_name || 'U').charAt(0)}
+    </div>
+    <div className="min-w-0">
+      <div className="text-xs font-bold text-slate-900 truncate max-w-[160px]">{data.full_name}</div>
+      <div className="text-[10px] font-mono text-slate-500">
+        {data.employee_code} • {data.total} eq.
+      </div>
+    </div>
+  </div>
+);
+
+const CategoryBubbleNode = ({ data }: any) => {
+  const st = getCategoryBubbleStyle(data.category);
+  return (
+    <div
+      className={`px-3.5 py-2.5 rounded-full border-2 shadow-sm cursor-pointer transition flex items-center gap-2.5 bg-white ${st.bg}`}
+    >
+      <Handle type="target" position={Position.Top} className="!bg-slate-400" />
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${st.dot}`}>
+        {renderSmallCatIcon(data.category, 'w-4 h-4')}
+      </div>
+      <div className="pr-1">
+        <div className="text-[11px] font-bold leading-tight whitespace-nowrap">{data.category}</div>
+        <div className="text-xs font-extrabold leading-tight">× {data.count}</div>
+      </div>
+    </div>
+  );
 };
 
 export const DepartmentsView: React.FC = () => {
@@ -91,7 +164,131 @@ export const DepartmentsView: React.FC = () => {
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [diagramData, setDiagramData] = useState<DepartmentDiagramResponse | null>(null);
   const [activeTab, setActiveTab] = useState<'LIST' | 'DIAGRAM'>('LIST');
-  const [selectedBubbleAsset, setSelectedBubbleAsset] = useState<Asset | null>(null);
+  const [selectedCategoryGroup, setSelectedCategoryGroup] = useState<{
+    title: string;
+    category: string;
+    assets: Asset[];
+  } | null>(null);
+
+  const bubbleNodeTypes = useMemo(
+    () => ({
+      deptBubbleRoot: DeptBubbleRootNode,
+      userBubbleRoot: UserBubbleRootNode,
+      categoryBubble: CategoryBubbleNode,
+    }),
+    []
+  );
+
+  const { bubbleNodes, bubbleEdges } = useMemo(() => {
+    if (!diagramData) return { bubbleNodes: [] as Node[], bubbleEdges: [] as Edge[] };
+
+    const bNodes: Node[] = [];
+    const bEdges: Edge[] = [];
+
+    const groupByCategory = (assets: Asset[]) => {
+      const map = new Map<string, Asset[]>();
+      for (const a of assets) {
+        const key = a.category || 'OTRO';
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(a);
+      }
+      return Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length);
+    };
+
+    // 1. Conjunto Principal: Departamento / Site -> burbujas por tipo de activo y cantidad
+    const directCats = groupByCategory(diagramData.direct_assets);
+    const deptRootId = 'bubble-dept-root';
+    const isSite =
+      diagramData.department.toUpperCase().includes('SITE') ||
+      diagramData.department.toUpperCase().includes('BODEGA');
+
+    const deptCols = Math.min(Math.max(directCats.length, 1), 4);
+    const deptCenterX = Math.max(120, (deptCols * 195) / 2 - 90);
+
+    bNodes.push({
+      id: deptRootId,
+      type: 'deptBubbleRoot',
+      position: { x: deptCenterX, y: 20 },
+      data: {
+        name: diagramData.department,
+        is_site: isSite,
+        total: diagramData.direct_assets.length,
+      },
+    });
+
+    directCats.forEach(([cat, catAssets], idx) => {
+      const col = idx % 4;
+      const row = Math.floor(idx / 4);
+      const nodeId = `bubble-dept-cat-${cat}`;
+      bNodes.push({
+        id: nodeId,
+        type: 'categoryBubble',
+        position: { x: 20 + col * 195, y: 155 + row * 105 },
+        data: {
+          title: diagramData.department,
+          category: cat,
+          count: catAssets.length,
+          assets: catAssets,
+        },
+      });
+      bEdges.push({
+        id: `edge-${deptRootId}-${nodeId}`,
+        source: deptRootId,
+        target: nodeId,
+        style: { stroke: '#0284c7', strokeWidth: 2 },
+      });
+    });
+
+    // 2. Conjuntos separados en el mismo tablero: cada persona -> burbujas por tipo de activo y cantidad
+    const laneX = 840;
+    let curY = 20;
+
+    diagramData.user_groups.forEach((grp) => {
+      const uCats = groupByCategory(grp.assets);
+      const uRootId = `bubble-usr-${grp.user.id}`;
+      const uCols = Math.min(Math.max(uCats.length, 1), 3);
+      const uCenterX = laneX + Math.max(40, (uCols * 185) / 2 - 95);
+
+      bNodes.push({
+        id: uRootId,
+        type: 'userBubbleRoot',
+        position: { x: uCenterX, y: curY },
+        data: {
+          full_name: grp.user.full_name,
+          employee_code: grp.user.employee_code,
+          total: grp.assets.length,
+        },
+      });
+
+      uCats.forEach(([cat, catAssets], idx) => {
+        const col = idx % 3;
+        const row = Math.floor(idx / 3);
+        const nodeId = `bubble-usr-${grp.user.id}-cat-${cat}`;
+        bNodes.push({
+          id: nodeId,
+          type: 'categoryBubble',
+          position: { x: laneX + col * 185, y: curY + 125 + row * 95 },
+          data: {
+            title: grp.user.full_name,
+            category: cat,
+            count: catAssets.length,
+            assets: catAssets,
+          },
+        });
+        bEdges.push({
+          id: `edge-${uRootId}-${nodeId}`,
+          source: uRootId,
+          target: nodeId,
+          style: { stroke: '#10b981', strokeWidth: 2 },
+        });
+      });
+
+      const rows = Math.max(1, Math.ceil(uCats.length / 3));
+      curY += 160 + rows * 95;
+    });
+
+    return { bubbleNodes: bNodes, bubbleEdges: bEdges };
+  }, [diagramData]);
 
   // Modales
   const [newDeptModalOpen, setNewDeptModalOpen] = useState(false);
@@ -138,7 +335,7 @@ export const DepartmentsView: React.FC = () => {
     try {
       const res = await api.getDepartmentDiagram(deptName);
       setDiagramData(res);
-      setSelectedBubbleAsset(null);
+      setSelectedCategoryGroup(null);
     } catch (err) {
       console.error('Error cargando diagrama de departamento:', err);
     }
@@ -933,179 +1130,80 @@ export const DepartmentsView: React.FC = () => {
         </div>
       )}
 
-      {/* Pestaña 2: Mapa de Conjuntos (Bolitas agrupadas sin conexiones) */}
+      {/* Pestaña 2: Diagrama de Burbujas Conectadas por Categoría */}
       {activeTab === 'DIAGRAM' && diagramData && (
-        <div className="space-y-6">
-          {/* Detalle rápido de la bolita seleccionada */}
-          {selectedBubbleAsset && (
-            <div className="bg-white p-4 rounded-2xl border-2 border-sky-300 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                    getCategoryBubbleStyle(selectedBubbleAsset.category).dot
-                  }`}
-                >
-                  {renderSmallCatIcon(selectedBubbleAsset.category)}
+        <div className="space-y-4">
+          <div
+            className="w-full h-[640px] min-h-[600px] bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden"
+            style={{ width: '100%', height: '640px' }}
+          >
+            <ReactFlow
+              key={`${selectedDept}-${bubbleNodes.length}`}
+              nodes={bubbleNodes}
+              edges={bubbleEdges}
+              nodeTypes={bubbleNodeTypes}
+              onNodeClick={(_, node: any) => {
+                if (node.type === 'categoryBubble' && node.data?.assets) {
+                  setSelectedCategoryGroup({
+                    title: node.data.title,
+                    category: node.data.category,
+                    assets: node.data.assets,
+                  });
+                }
+              }}
+              fitView
+              fitViewOptions={{ padding: 0.2 }}
+            >
+              <Background color="#cbd5e1" gap={20} />
+              <Controls />
+            </ReactFlow>
+          </div>
+
+          {/* Desglose al hacer clic en cualquier burbuja de categoría */}
+          {selectedCategoryGroup && (
+            <div className="bg-white rounded-2xl border-2 border-sky-300 shadow-sm overflow-hidden">
+              <div className="px-5 py-3.5 bg-sky-50/70 border-b border-sky-200 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+                  {renderSmallCatIcon(selectedCategoryGroup.category)}
+                  <span>
+                    {selectedCategoryGroup.title} — {selectedCategoryGroup.category} (
+                    {selectedCategoryGroup.assets.length})
+                  </span>
                 </div>
-                <div className="text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-slate-900">
-                      {selectedBubbleAsset.asset_tag}
-                    </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                      {selectedBubbleAsset.category}
-                    </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700">
-                      {selectedBubbleAsset.status}
-                    </span>
-                  </div>
-                  <div className="text-slate-600 mt-0.5">
-                    {selectedBubbleAsset.brand} {selectedBubbleAsset.model} • S/N:{' '}
-                    <span className="font-mono font-semibold text-slate-800">
-                      {selectedBubbleAsset.serial_number}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handlePrintBrother(selectedBubbleAsset.id, selectedBubbleAsset.asset_tag)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-100"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Etiqueta</span>
-                </button>
-                <button
-                  onClick={() => setEditingAsset(selectedBubbleAsset)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 text-xs font-bold text-amber-800 hover:bg-amber-100"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>Editar</span>
-                </button>
-                <button
-                  onClick={() => setSelectedBubbleAsset(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                  onClick={() => setSelectedCategoryGroup(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* Conjunto 1: Equipos propios del Departamento / Site */}
-          <div className="bg-gradient-to-br from-sky-50/80 to-white p-6 rounded-[2rem] border-2 border-sky-200 shadow-sm space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-sky-600 text-white flex items-center justify-center shadow-sm">
-                  <Building2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-700 block">
-                    Conjunto del Área / Site
-                  </span>
-                  <h4 className="text-sm font-bold text-slate-900">{diagramData.department}</h4>
-                </div>
-              </div>
-              <span className="text-xs font-bold px-3 py-1 rounded-full bg-white text-sky-800 border border-sky-200 shadow-2xs">
-                {diagramData.direct_assets.length} equipo(s) directos
-              </span>
-            </div>
-
-            {diagramData.direct_assets.length === 0 ? (
-              <div className="py-6 text-center text-xs text-slate-400 italic">
-                Sin equipos asignados directamente sin colaborador en {diagramData.department}.
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2.5 pt-1">
-                {diagramData.direct_assets.map((a) => {
-                  const st = getCategoryBubbleStyle(a.category);
-                  const isSel = selectedBubbleAsset?.id === a.id;
-                  return (
-                    <button
-                      key={a.id}
-                      onClick={() => setSelectedBubbleAsset(a)}
-                      title={`${a.category} • ${a.brand} ${a.model} • S/N: ${a.serial_number}`}
-                      className={`inline-flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-full border text-xs transition shadow-2xs ${
-                        st.bg
-                      } ${isSel ? 'ring-2 ring-sky-600 ring-offset-1' : ''}`}
-                    >
-                      <span
-                        className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${st.dot}`}
-                      >
-                        {renderSmallCatIcon(a.category)}
+              <div className="divide-y divide-slate-100 text-xs max-h-64 overflow-y-auto">
+                {selectedCategoryGroup.assets.map((a) => (
+                  <div key={a.id} className="px-5 py-2.5 flex items-center justify-between gap-3">
+                    <div>
+                      <span className="font-mono font-bold text-slate-900">{a.asset_tag}</span>
+                      <span className="text-slate-400 mx-2">•</span>
+                      <span className="text-slate-700">
+                        {a.brand} {a.model}
                       </span>
-                      <span className="font-mono font-bold text-[11px]">{a.asset_tag}</span>
-                      <span className="text-[11px] opacity-80 truncate max-w-[140px]">
-                        {a.model || a.category}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Conjuntos Separados: Cada Colaborador del Departamento */}
-          {diagramData.user_groups.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wide px-1">
-                <Users className="w-4 h-4 text-emerald-600" />
-                <span>
-                  Conjuntos por Colaborador en {diagramData.department} ({diagramData.user_groups.length})
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {diagramData.user_groups.map((grp) => (
-                  <div
-                    key={grp.user.id}
-                    className="bg-gradient-to-br from-emerald-50/70 to-white p-5 rounded-[2rem] border-2 border-emerald-200 shadow-sm space-y-3.5"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                          {grp.user.full_name.charAt(0)}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-slate-900 truncate">
-                            {grp.user.full_name}
-                          </div>
-                          <div className="text-[10px] font-mono text-slate-500">
-                            {grp.user.employee_code}
-                            {grp.user.position ? ` • ${grp.user.position}` : ''}
-                          </div>
-                        </div>
-                      </div>
-                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white text-emerald-700 border border-emerald-200 shrink-0">
-                        {grp.assets.length}
-                      </span>
+                      <span className="text-slate-400 mx-2">•</span>
+                      <span className="font-mono text-slate-500">S/N: {a.serial_number}</span>
                     </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {grp.assets.map((a) => {
-                        const st = getCategoryBubbleStyle(a.category);
-                        const isSel = selectedBubbleAsset?.id === a.id;
-                        return (
-                          <button
-                            key={a.id}
-                            onClick={() => setSelectedBubbleAsset(a)}
-                            title={`${a.category} • ${a.brand} ${a.model} • S/N: ${a.serial_number}`}
-                            className={`inline-flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full border text-xs transition ${
-                              st.bg
-                            } ${isSel ? 'ring-2 ring-emerald-600 ring-offset-1' : ''}`}
-                          >
-                            <span
-                              className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${st.dot}`}
-                            >
-                              {renderSmallCatIcon(a.category)}
-                            </span>
-                            <span className="font-mono font-bold text-[10px]">{a.asset_tag}</span>
-                            <span className="text-[10px] opacity-80 truncate max-w-[110px]">
-                              {a.category}
-                            </span>
-                          </button>
-                        );
-                      })}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handlePrintBrother(a.id, a.asset_tag)}
+                        className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200"
+                        title="Imprimir etiqueta Brother"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setEditingAsset(a)}
+                        className="p-1.5 text-amber-700 hover:bg-amber-50 rounded-lg border border-amber-200"
+                        title="Editar equipo"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))}
