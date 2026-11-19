@@ -16,7 +16,7 @@ export const SanJuanMap: React.FC<SanJuanMapProps> = ({
 }) => {
   const [zoom, setZoom] = useState(1);
 
-  const handleZoomIn = () => setZoom((z) => Math.min(1.45, +(z + 0.15).toFixed(2)));
+  const handleZoomIn = () => setZoom((z) => Math.min(1.5, +(z + 0.15).toFixed(2)));
   const handleZoomOut = () => setZoom((z) => Math.max(0.9, +(z - 0.15).toFixed(2)));
   const handleReset = () => {
     setZoom(1);
@@ -24,116 +24,106 @@ export const SanJuanMap: React.FC<SanJuanMapProps> = ({
   };
 
   return (
-    <div className="relative w-full h-[270px] rounded-2xl bg-[#F4F6FA] border border-[#E6E8F0] overflow-hidden select-none">
-      {/* Mapa Vectorial Minimalista de San Juan del Río, Qro. */}
+    <div className="relative w-full h-[290px] rounded-2xl bg-[#F8FAFC] border border-[#E6E8F0] overflow-hidden select-none">
       <svg
-        viewBox="0 0 460 300"
+        viewBox="0 0 460 360"
         className="w-full h-full transition-transform duration-300 ease-out"
         style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
         role="img"
-        aria-label="Mapa minimalista de San Juan del Río mostrando las sedes OMEX y OPM"
+        aria-label="Silueta municipal de San Juan del Río, Querétaro con las ubicaciones de OMEX y OPM"
       >
-        {/* Fondo sutil y mancha urbana minimalista de San Juan del Río */}
-        <rect width="460" height="300" fill="#F4F6FA" />
+        <rect width="460" height="360" fill="#F8FAFC" />
 
-        {/* Zonas verdes / periferia sur */}
+        {/* Silueta exacta del municipio de San Juan del Río, Qro. */}
         <path
-          d="M0 190 Q90 175 160 220 T340 245 T460 230 L460 300 L0 300 Z"
-          fill="#EBF3EE"
-          opacity="0.7"
-        />
-
-        {/* Mancha urbana principal de San Juan del Río */}
-        <path
-          d="M128 78 L195 62 L248 80 L306 108 L348 145 L335 190 L265 198 L210 182 L152 178 L118 148 Z"
-          fill="#E4E8F1"
-        />
-        {/* Zona Industrial Oriente (OPM) */}
-        <path
-          d="M278 182 L365 186 L384 228 L335 248 L280 230 Z"
-          fill="#E6EBF4"
-        />
-        {/* Zona Poniente / Loma Linda (OMEX) */}
-        <path
-          d="M68 128 L128 136 L142 182 L82 186 L58 156 Z"
-          fill="#E6EBF4"
-        />
-
-        {/* Calles secundarias sutiles */}
-        <g stroke="#FFFFFF" strokeWidth="2" fill="none" opacity="0.9">
-          <path d="M135 120 L295 142" />
-          <path d="M162 95 L235 168" />
-          <path d="M210 112 L315 170" />
-          <path d="M180 142 L340 218" />
-        </g>
-
-        {/* Carretera 120 (Norte - Sur por el centro) */}
-        <path
-          d="M235 0 L204 82 L192 152 L196 190"
+          d="M206 10 L232 20 L226 32 L254 44 L250 62 L274 78 L254 90 L282 82 L306 104 L334 94 L334 80 L414 72 L404 134 L394 186 L382 232 L360 238 L340 258 L314 252 L320 288 L314 344 L290 346 L290 314 L268 306 L212 308 L180 282 L176 248 L152 236 L150 214 L126 214 L104 198 L64 196 L38 174 L68 140 L94 136 L108 110 L136 98 L150 82 L194 64 L194 48 L174 42 L174 18 Z"
+          fill="#E6E9F0"
           stroke="#CBD5E1"
-          strokeWidth="4.5"
-          strokeLinecap="round"
-          fill="none"
-        />
-        <path
-          d="M235 0 L204 82 L192 152 L196 190"
-          stroke="#FFFFFF"
-          strokeWidth="2"
-          strokeLinecap="round"
-          fill="none"
-        />
-
-        {/* Carretera 45 / Autopista México-Querétaro */}
-        <path
-          d="M0 78 L92 146 L124 176 L196 190 L282 224 L350 300"
-          stroke="#CBD5E1"
-          strokeWidth="6"
-          strokeLinecap="round"
+          strokeWidth="1.5"
           strokeLinejoin="round"
-          fill="none"
         />
+
+        {/* Mancha urbana central de San Juan del Río */}
         <path
-          d="M0 78 L92 146 L124 176 L196 190 L282 224 L350 300"
-          stroke="#93C5FD"
+          d="M214 146 L252 136 L294 148 L302 174 L264 186 L220 176 Z"
+          fill="#DDE2EC"
+        />
+
+        {/* Río San Juan / Cuerpos de agua sutiles */}
+        <path
+          d="M206 58 L224 72 L246 88 L250 124 L244 166 L256 232"
+          stroke="#BFDBFE"
+          strokeWidth="2"
+          fill="none"
+          opacity="0.85"
+        />
+
+        {/* Carretera 120 (Norte-Sur y Ramal Este hacia Cerro Gordo / Oeste hacia Galindo) */}
+        <path
+          d="M284 82 L264 128 L256 158 L222 166 L152 148 L104 156"
+          stroke="#FDE68A"
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
           fill="none"
         />
+        <path
+          d="M256 158 L338 170 L398 176"
+          stroke="#FDE68A"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          fill="none"
+        />
 
-        {/* Etiquetas minimalistas de referencia geográfica */}
-        <g fontFamily="Inter, sans-serif" fill="#64748B" fontSize="9.5" fontWeight="600">
-          <text x="195" y="128" textAnchor="middle" fill="#475569" fontSize="11" fontWeight="700">
+        {/* Autopista 57 / Carretera 45 (México - Querétaro) */}
+        <path
+          d="M142 96 L186 130 L222 166 L272 198 L308 226 L340 284"
+          stroke="#FFFFFF"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        <path
+          d="M142 96 L186 130 L222 166 L272 198 L308 226 L340 284"
+          stroke="#F59E0B"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+          opacity="0.75"
+        />
+
+        {/* Libramiento / Ramal Sur */}
+        <path
+          d="M222 166 L214 190 L262 194 L308 226"
+          stroke="#FFFFFF"
+          strokeWidth="2.5"
+          fill="none"
+        />
+
+        {/* Referencias minimalistas */}
+        <g fontFamily="Inter, sans-serif" fill="#64748B" fontSize="8.5" fontWeight="600">
+          <text x="260" y="148" textAnchor="middle" fill="#334155" fontSize="10" fontWeight="700">
             San Juan del Río
           </text>
-          <text x="58" y="118" textAnchor="middle" fontSize="8.5">
-            Loma Linda
+          <text x="220" y="42" textAnchor="middle" fontSize="8">
+            La Valla
           </text>
-          <text x="278" y="114" textAnchor="middle" fontSize="8.5">
-            El Rocío
+          <text x="172" y="122" textAnchor="middle" fontSize="7.5">
+            La Estancia
           </text>
-          <text x="312" y="162" textAnchor="middle" fontSize="8.5">
-            Granjas Banthí
+          <text x="352" y="164" textAnchor="middle" fontSize="7.5">
+            Cerro Gordo
           </text>
-          <text x="242" y="206" textAnchor="middle" fontSize="8">
-            Nuevo San Juan
-          </text>
-          <text x="390" y="274" textAnchor="middle" fontSize="8.5">
-            Paso de Mata
+          <text x="326" y="220" textAnchor="middle" fontSize="7.5">
+            Palmillas
           </text>
         </g>
 
-        {/* Escudos pequeños de carretera */}
-        <g fontFamily="Inter, sans-serif" fontSize="7" fontWeight="700" textAnchor="middle">
-          <rect x="200" y="72" width="18" height="12" rx="3" fill="#FFFFFF" stroke="#94A3B8" strokeWidth="1" />
-          <text x="209" y="80.5" fill="#475569">120</text>
-          <rect x="256" y="216" width="16" height="12" rx="3" fill="#FFFFFF" stroke="#94A3B8" strokeWidth="1" />
-          <text x="264" y="224.5" fill="#475569">45</text>
-        </g>
-
-        {/* PIN 1: OMEX (Optibelt de México) */}
+        {/* PIN 1: OMEX (Optibelt de México — Casa Blanca / Carr. 45-57) */}
         <g
-          className="cursor-pointer group"
+          className="cursor-pointer"
           onClick={() => onSelectSite(selectedSite === 'OMEX' ? 'ALL' : 'OMEX')}
           role="button"
           tabIndex={0}
@@ -146,44 +136,44 @@ export const SanJuanMap: React.FC<SanJuanMapProps> = ({
           }}
         >
           <circle
-            cx="114"
-            cy="170"
-            r={selectedSite === 'OMEX' ? 18 : 13}
+            cx="218"
+            cy="165"
+            r={selectedSite === 'OMEX' ? 17 : 12}
             fill="#5B4FE9"
-            opacity="0.16"
+            opacity="0.18"
             className="transition-all duration-200"
           />
           <circle
-            cx="114"
-            cy="170"
-            r="7"
+            cx="218"
+            cy="165"
+            r="6.5"
             fill={selectedSite === 'OMEX' ? '#4338CA' : '#5B4FE9'}
             stroke="#FFFFFF"
-            strokeWidth="2.5"
+            strokeWidth="2.2"
           />
-          <g transform="translate(125, 152)">
+          <g transform="translate(118, 174)">
             <rect
               x="0"
               y="0"
-              width="98"
-              height="32"
+              width="92"
+              height="30"
               rx="8"
               fill="#FFFFFF"
-              stroke={selectedSite === 'OMEX' ? '#5B4FE9' : '#E2E8F0'}
+              stroke={selectedSite === 'OMEX' ? '#5B4FE9' : '#CBD5E1'}
               strokeWidth={selectedSite === 'OMEX' ? '1.8' : '1'}
             />
             <text x="8" y="13" fontSize="9.5" fontWeight="800" fill="#1E293B">
               OMEX
             </text>
-            <text x="8" y="24" fontSize="8" fontWeight="600" fill="#64748B">
+            <text x="8" y="23.5" fontSize="8" fontWeight="600" fill="#64748B">
               {omexCount} activos
             </text>
           </g>
         </g>
 
-        {/* PIN 2: OPM (Optibelt Production Mexico) */}
+        {/* PIN 2: OPM (Optibelt Production Mexico — Zona Industrial Oriente) */}
         <g
-          className="cursor-pointer group"
+          className="cursor-pointer"
           onClick={() => onSelectSite(selectedSite === 'OPM' ? 'ALL' : 'OPM')}
           role="button"
           tabIndex={0}
@@ -196,43 +186,43 @@ export const SanJuanMap: React.FC<SanJuanMapProps> = ({
           }}
         >
           <circle
-            cx="326"
-            cy="218"
-            r={selectedSite === 'OPM' ? 20 : 14}
+            cx="296"
+            cy="184"
+            r={selectedSite === 'OPM' ? 18 : 13}
             fill="#0284C7"
-            opacity="0.18"
+            opacity="0.2"
             className="transition-all duration-200"
           />
           <circle
-            cx="326"
-            cy="218"
-            r="7.5"
+            cx="296"
+            cy="184"
+            r="7"
             fill={selectedSite === 'OPM' ? '#0369A1' : '#0284C7'}
             stroke="#FFFFFF"
-            strokeWidth="2.5"
+            strokeWidth="2.2"
           />
-          <g transform="translate(337, 198)">
+          <g transform="translate(306, 178)">
             <rect
               x="0"
               y="0"
-              width="98"
-              height="32"
+              width="92"
+              height="30"
               rx="8"
               fill="#FFFFFF"
-              stroke={selectedSite === 'OPM' ? '#0284C7' : '#E2E8F0'}
+              stroke={selectedSite === 'OPM' ? '#0284C7' : '#CBD5E1'}
               strokeWidth={selectedSite === 'OPM' ? '1.8' : '1'}
             />
             <text x="8" y="13" fontSize="9.5" fontWeight="800" fill="#1E293B">
               OPM
             </text>
-            <text x="8" y="24" fontSize="8" fontWeight="600" fill="#64748B">
+            <text x="8" y="23.5" fontSize="8" fontWeight="600" fill="#64748B">
               {opmCount} activos
             </text>
           </g>
         </g>
       </svg>
 
-      {/* Controles de Zoom estilo ZoBox */}
+      {/* Controles de Zoom */}
       <div className="absolute left-3 bottom-3 flex flex-col bg-white border border-[#E2E8F0] rounded-xl shadow-xs overflow-hidden">
         <button
           type="button"
