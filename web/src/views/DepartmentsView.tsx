@@ -340,7 +340,7 @@ export const DepartmentsView: React.FC = () => {
     }
   };
 
-  const handleAssignToDept = async (asset: Asset) => {
+  const handleAssignToDept = async (asset: Asset, andPrint = false) => {
     if (!assignDeptTarget) return;
     try {
       setAssigningId(asset.id);
@@ -350,7 +350,20 @@ export const DepartmentsView: React.FC = () => {
         location: assignLocation,
         status: assignStatus,
       });
-      setAssignFeedback(`Equipo ${asset.asset_tag} asignado a ${assignDeptTarget}`);
+
+      if (andPrint) {
+        try {
+          await api.printBrotherLabel(asset.id);
+          setAssignFeedback(`Equipo ${asset.asset_tag} asignado a ${assignDeptTarget} y etiqueta enviada a imprimir`);
+        } catch (printErr: any) {
+          setAssignFeedback(
+            `Advertencia: ${asset.asset_tag} asignado a ${assignDeptTarget}, pero falló la impresión (${printErr.message || 'error Brother'})`
+          );
+        }
+      } else {
+        setAssignFeedback(`Equipo ${asset.asset_tag} asignado a ${assignDeptTarget}`);
+      }
+
       const refreshed = await api.getAssets();
       setAllAssets(refreshed.filter((a) => a.status !== 'RETIRED'));
       loadSummaries();
@@ -806,8 +819,20 @@ export const DepartmentsView: React.FC = () => {
               </label>
 
               {assignFeedback && (
-                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-lg flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5" />
+                <span
+                  className={`text-xs font-bold px-3 py-1 rounded-lg flex items-center gap-1 border ${
+                    assignFeedback.startsWith('Error:')
+                      ? 'text-rose-700 bg-rose-50 border-rose-200'
+                      : assignFeedback.startsWith('Advertencia:')
+                      ? 'text-amber-800 bg-amber-50 border-amber-200'
+                      : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                  }`}
+                >
+                  {assignFeedback.startsWith('Error:') || assignFeedback.startsWith('Advertencia:') ? (
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" weight="duotone" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5 shrink-0" weight="bold" />
+                  )}
                   {assignFeedback}
                 </span>
               )}
@@ -834,13 +859,23 @@ export const DepartmentsView: React.FC = () => {
                     {a.brand} {a.model} • S/N: <span className="font-mono">{a.serial_number}</span>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleAssignToDept(a)}
-                  disabled={assigningId === a.id}
-                  className="shrink-0 bg-sky-600 hover:bg-sky-700 text-white font-bold px-3.5 py-1.5 rounded-lg transition disabled:opacity-50"
-                >
-                  {assigningId === a.id ? 'Asignando...' : 'Asignar aquí'}
-                </button>
+                <div className="shrink-0 flex items-center gap-2">
+                  <button
+                    onClick={() => handleAssignToDept(a, false)}
+                    disabled={assigningId === a.id}
+                    className="bg-white hover:bg-slate-50 text-slate-700 border border-[#E6E8F0] font-semibold px-3 py-1.5 rounded-lg transition disabled:opacity-50 active:scale-[0.98]"
+                  >
+                    {assigningId === a.id ? 'Asignando...' : 'Solo Asignar'}
+                  </button>
+                  <button
+                    onClick={() => handleAssignToDept(a, true)}
+                    disabled={assigningId === a.id}
+                    className="inline-flex items-center gap-1.5 bg-[#5B4FE9] hover:bg-[#4B3FD8] text-white font-bold px-3.5 py-1.5 rounded-lg transition disabled:opacity-50 active:scale-[0.98]"
+                  >
+                    <Printer className="w-3.5 h-3.5" weight="duotone" />
+                    <span>{assigningId === a.id ? 'Procesando...' : 'Asignar e Imprimir'}</span>
+                  </button>
+                </div>
               </div>
             ))}
             {filteredAssignAssets.length === 0 && (
