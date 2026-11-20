@@ -290,7 +290,7 @@ func (h *AppHandler) AssignAssetToDepartment(w http.ResponseWriter, r *http.Requ
 	histID := "his-" + uuid.New().String()[:8]
 	_, err = tx.Exec(`
 		INSERT INTO asset_history (id, asset_id, action_type, previous_user_id, new_user_id, notes, responsiva_status)
-		VALUES (?, ?, 'UPDATE', ?, NULL, ?, 'NOT_REQUIRED')
+		VALUES (?, ?, 'ASSIGN', ?, NULL, ?, 'NOT_REQUIRED')
 	`, histID, req.AssetID, prevUserID, notes)
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error al registrar historial: "+err.Error())
