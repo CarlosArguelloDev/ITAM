@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -99,82 +98,7 @@ func runMigrations(db *sql.DB) error {
 		_, _ = db.Exec(alter)
 	}
 
-	if err := migrateAssetsAllowEmptyLocation(db); err != nil {
-		return err
-	}
-
 	return nil
-}
-
-func migrateAssetsAllowEmptyLocation(db *sql.DB) error {
-	var tableSQL string
-	err := db.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='assets'").Scan(&tableSQL)
-	if err != nil {
-		return err
-	}
-	if strings.Contains(tableSQL, "''") {
-		return nil
-	}
-
-	log.Println("[ITAM-DB] Migrando tabla assets para permitir ubicación vacía en equipos sin colaborador...")
-	if _, err := db.Exec("PRAGMA foreign_keys=OFF;"); err != nil {
-		return err
-	}
-	defer func() {
-		_, _ = db.Exec("PRAGMA foreign_keys=ON;")
-	}()
-
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	stmts := []string{
-		`CREATE TABLE assets_new (
-			id TEXT PRIMARY KEY,
-			asset_tag TEXT UNIQUE NOT NULL,
-			serial_number TEXT NOT NULL,
-			category TEXT NOT NULL,
-			brand TEXT NOT NULL,
-			model TEXT NOT NULL,
-			status TEXT NOT NULL CHECK(status IN ('AVAILABLE', 'ASSIGNED', 'MAINTENANCE', 'RETIRED', 'LOST')) DEFAULT 'AVAILABLE',
-			assigned_to_user_id TEXT NULLABLE REFERENCES users(id) ON DELETE SET NULL,
-			parent_asset_id TEXT NULLABLE REFERENCES assets(id) ON DELETE SET NULL,
-			location TEXT NOT NULL DEFAULT '' CHECK(location IN ('', 'OPM', 'OMEX')),
-			department TEXT NOT NULL DEFAULT '',
-			specs TEXT NOT NULL DEFAULT '{}',
-			warranty_expiry DATE NULLABLE,
-			last_audited_at DATETIME NULLABLE,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-		);`,
-		`INSERT INTO assets_new (id, asset_tag, serial_number, category, brand, model, status,
-		                         assigned_to_user_id, parent_asset_id, location, department, specs,
-		                         warranty_expiry, last_audited_at, created_at)
-		 SELECT id, asset_tag, serial_number, category, brand, model, status,
-		        assigned_to_user_id, parent_asset_id,
-		        CASE WHEN assigned_to_user_id IS NULL OR assigned_to_user_id = '' THEN '' ELSE location END,
-		        department, specs, warranty_expiry, last_audited_at, created_at
-		 FROM assets;`,
-		`DROP TABLE assets;`,
-		`ALTER TABLE assets_new RENAME TO assets;`,
-		`CREATE INDEX IF NOT EXISTS idx_assets_tag ON assets(asset_tag);`,
-		`CREATE INDEX IF NOT EXISTS idx_assets_serial ON assets(serial_number);`,
-		`CREATE INDEX IF NOT EXISTS idx_assets_assigned_user ON assets(assigned_to_user_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_assets_parent ON assets(parent_asset_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_assets_status ON assets(status);`,
-		`CREATE INDEX IF NOT EXISTS idx_assets_category ON assets(category);`,
-		`CREATE INDEX IF NOT EXISTS idx_assets_location ON assets(location);`,
-		`CREATE INDEX IF NOT EXISTS idx_assets_department ON assets(department);`,
-	}
-
-	for _, stmt := range stmts {
-		if _, err := tx.Exec(stmt); err != nil {
-			return fmt.Errorf("fallo en migración assets: %w", err)
-		}
-	}
-
-	return tx.Commit()
 }
 
 func runSeed(db *sql.DB) error {

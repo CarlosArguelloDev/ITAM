@@ -161,13 +161,13 @@ export const QuickUserAssignModal: React.FC<QuickUserAssignModalProps> = ({
       await api.unassignAsset({
         asset_id: asset.id,
         next_status: 'AVAILABLE',
-        location: '',
+        location: asset.location || user.location,
         notes: `Desasignado de ${user.full_name} y devuelto a stock central`,
       });
 
       // Actualizar estado local
       setAssignedAssets((prev) => prev.filter((a) => a.id !== asset.id));
-      setStockAssets((prev) => [{ ...asset, status: 'AVAILABLE', assigned_to_user_id: undefined, location: '' }, ...prev]);
+      setStockAssets((prev) => [{ ...asset, status: 'AVAILABLE', assigned_to_user_id: undefined }, ...prev]);
 
       setFeedback({
         type: 'warn',
@@ -522,9 +522,7 @@ export const QuickUserAssignModal: React.FC<QuickUserAssignModalProps> = ({
                         <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5">
                           <span>S/N: {ast.serial_number}</span>
                           <span>•</span>
-                          <span className={`font-sans font-semibold ${ast.location ? 'text-sky-700' : 'text-slate-400 italic'}`}>
-                            {ast.location || 'Sin ubicación'}
-                          </span>
+                          <span className="font-sans font-semibold text-sky-700">{ast.location}</span>
                           {ast.department && (
                             <>
                               <span>•</span>

@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS assets (
     status TEXT NOT NULL CHECK(status IN ('AVAILABLE', 'ASSIGNED', 'MAINTENANCE', 'RETIRED', 'LOST')) DEFAULT 'AVAILABLE',
     assigned_to_user_id TEXT NULLABLE REFERENCES users(id) ON DELETE SET NULL,
     parent_asset_id TEXT NULLABLE REFERENCES assets(id) ON DELETE SET NULL,
-    location TEXT NOT NULL DEFAULT '' CHECK(location IN ('', 'OPM', 'OMEX')),
+    location TEXT NOT NULL CHECK(location IN ('OPM', 'OMEX')),
     department TEXT NOT NULL DEFAULT '',
     specs TEXT NOT NULL DEFAULT '{}',
     warranty_expiry DATE NULLABLE,

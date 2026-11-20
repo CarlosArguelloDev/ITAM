@@ -61,7 +61,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   const [brand, setBrand] = useState('Dell');
   const [model, setModel] = useState('');
   const [status, setStatus] = useState<AssetStatus>('AVAILABLE');
-  const [location, setLocation] = useState<LocationType | ''>('');
+  const [location, setLocation] = useState<LocationType>('OPM');
   const [department, setDepartment] = useState('');
   const [departments, setDepartments] = useState<Department[]>([]);
   const [assignedToUserId, setAssignedToUserId] = useState('');
@@ -105,7 +105,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
       setBrand(assetToEdit.brand);
       setModel(assetToEdit.model);
       setStatus(assetToEdit.status);
-      setLocation((assetToEdit.location as LocationType | '') ?? '');
+      setLocation((assetToEdit.location as LocationType) || 'OPM');
       setDepartment(assetToEdit.department || '');
       setAssignedToUserId(assetToEdit.assigned_to_user_id || '');
       setParentAssetId(assetToEdit.parent_asset_id || '');
@@ -315,13 +315,12 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
               </select>
             </div>
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">Ubicación / Sede:</label>
+              <label className="font-semibold text-slate-700 block mb-1">Ubicación / Sede *:</label>
               <select
                 value={location}
-                onChange={(e) => setLocation(e.target.value as LocationType | '')}
+                onChange={(e) => setLocation(e.target.value as LocationType)}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 font-bold text-sky-800"
               >
-                <option value="">Sin ubicación (sin colaborador)</option>
                 <option value="OPM">OPM (Planta OPM)</option>
                 <option value="OMEX">OMEX (Oficinas OMEX)</option>
               </select>
