@@ -184,12 +184,19 @@ func (h *AppHandler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 
 	newID := "ast-" + uuid.New().String()[:8]
 
-	// Si el activo tiene un usuario asignado, sincronizar departamento automáticamente con el del usuario
+	// Si el activo tiene un usuario asignado, sincronizar departamento y ubicación automáticamente con el del usuario
 	if req.AssignedToUserID != nil && *req.AssignedToUserID != "" {
-		var userDept string
-		if err := h.DB.QueryRow("SELECT department FROM users WHERE id = ?", *req.AssignedToUserID).Scan(&userDept); err == nil && userDept != "" {
-			req.Department = userDept
+		var userDept, userLoc string
+		if err := h.DB.QueryRow("SELECT department, location FROM users WHERE id = ?", *req.AssignedToUserID).Scan(&userDept, &userLoc); err == nil {
+			if userDept != "" {
+				req.Department = userDept
+			}
+			if req.Location == "" && userLoc != "" {
+				req.Location = userLoc
+			}
 		}
+	} else {
+		req.Location = ""
 	}
 
 	tx, err := h.DB.Begin()
@@ -252,12 +259,19 @@ func (h *AppHandler) UpdateAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Si el activo tiene un usuario asignado, sincronizar departamento automáticamente con el del usuario
+	// Si el activo tiene un usuario asignado, sincronizar departamento y ubicación automáticamente con el del usuario
 	if req.AssignedToUserID != nil && *req.AssignedToUserID != "" {
-		var userDept string
-		if err := h.DB.QueryRow("SELECT department FROM users WHERE id = ?", *req.AssignedToUserID).Scan(&userDept); err == nil && userDept != "" {
-			req.Department = userDept
+		var userDept, userLoc string
+		if err := h.DB.QueryRow("SELECT department, location FROM users WHERE id = ?", *req.AssignedToUserID).Scan(&userDept, &userLoc); err == nil {
+			if userDept != "" {
+				req.Department = userDept
+			}
+			if req.Location == "" && userLoc != "" {
+				req.Location = userLoc
+			}
 		}
+	} else {
+		req.Location = ""
 	}
 
 	tx, err := h.DB.Begin()
@@ -525,12 +539,8 @@ func (h *AppHandler) UnassignAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Location == "" || (req.Location != "OPM" && req.Location != "OMEX") {
-		req.Location = currentLoc
-		if req.Location != "OPM" && req.Location != "OMEX" {
-			req.Location = "OPM"
-		}
-	}
+	// Al desasignar a stock sin colaborador, limpiar ubicación de momento
+	req.Location = ""
 
 	tx, err := h.DB.Begin()
 	if err != nil {

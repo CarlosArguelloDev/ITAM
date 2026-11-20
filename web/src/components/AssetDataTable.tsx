@@ -93,7 +93,11 @@ export const AssetDataTable: React.FC<AssetDataTableProps> = ({
     return assets.filter((a) => {
       if (categoryFilter && a.category !== categoryFilter) return false;
       if (statusFilter && a.status !== statusFilter) return false;
-      if (locationFilter && a.location !== locationFilter) return false;
+      if (locationFilter === 'NONE') {
+        if (a.location) return false;
+      } else if (locationFilter && a.location !== locationFilter) {
+        return false;
+      }
       if (departmentFilter && (a.department || '') !== departmentFilter) return false;
       if (!q) return true;
       return (
@@ -141,7 +145,7 @@ export const AssetDataTable: React.FC<AssetDataTableProps> = ({
       if (groupBy === 'category') key = a.category || 'Sin categoría';
       else if (groupBy === 'status') key = a.status || 'Sin estado';
       else if (groupBy === 'department') key = a.department || 'Sin departamento';
-      else if (groupBy === 'location') key = a.location || 'Sin sede';
+      else if (groupBy === 'location') key = a.location || 'Sin ubicación';
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(a);
     });
@@ -301,9 +305,15 @@ export const AssetDataTable: React.FC<AssetDataTableProps> = ({
       {visibleCols.location && (
         <td className="py-3 px-4 whitespace-nowrap">
           <div className="flex items-center gap-1.5">
-            <span className="font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md text-[10px] border border-sky-200">
-              {a.location}
-            </span>
+            {a.location ? (
+              <span className="font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md text-[10px] border border-sky-200">
+                {a.location}
+              </span>
+            ) : (
+              <span className="font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md text-[10px] border border-slate-200">
+                Sin ubicación
+              </span>
+            )}
             {a.department && (
               <span className="text-[11px] text-slate-600 font-medium truncate max-w-[130px]" title={a.department}>
                 {a.department}
@@ -543,6 +553,7 @@ export const AssetDataTable: React.FC<AssetDataTableProps> = ({
             className="bg-white border border-[#E6E8F0] rounded-xl px-3 py-2 font-medium text-slate-700"
           >
             <option value="">Todas las Sedes</option>
+            <option value="NONE">Sin ubicación</option>
             <option value="OPM">OPM</option>
             <option value="OMEX">OMEX</option>
           </select>

@@ -106,7 +106,7 @@ export interface Asset {
   assigned_to_name?: string;
   parent_asset_id?: string;
   parent_asset_tag?: string;
-  location: LocationType;
+  location: LocationType | '';
   department?: string;
   specs: Record<string, any>;
   warranty_expiry?: string;
