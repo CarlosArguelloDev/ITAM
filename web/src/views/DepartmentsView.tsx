@@ -30,6 +30,7 @@ import {
 } from '@phosphor-icons/react';
 import { HardwareIcon } from '../components/HardwareIcon';
 import { AssetDataTable } from '../components/AssetDataTable';
+import { CopyButton } from '../components/CopyButton';
 import { api } from '../api';
 import {
   Asset,
@@ -1041,8 +1042,10 @@ export const DepartmentsView: React.FC = () => {
                     <div className="px-5 py-3.5 bg-emerald-50/70 border-b border-emerald-100 flex items-center justify-between">
                       <div>
                         <div className="text-xs font-bold text-slate-900">{grp.user.full_name}</div>
-                        <div className="text-[11px] font-mono text-slate-500">
-                          {grp.user.employee_code} {grp.user.position ? `• ${grp.user.position}` : ''}
+                        <div className="text-[11px] font-mono text-slate-500 flex items-center gap-1">
+                          <span>{grp.user.employee_code}</span>
+                          <CopyButton value={grp.user.employee_code} label="código de empleado" />
+                          {grp.user.position ? <span>• {grp.user.position}</span> : null}
                         </div>
                       </div>
                       <span className="text-xs font-bold bg-white text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full">
@@ -1053,11 +1056,17 @@ export const DepartmentsView: React.FC = () => {
                       {grp.assets.map((a) => (
                         <div key={a.id} className="px-5 py-2.5 flex items-center justify-between gap-2">
                           <div className="min-w-0">
-                            <span className="font-mono font-bold text-slate-800">{a.asset_tag}</span>
-                            <span className="text-slate-400 mx-1.5">•</span>
-                            <span className="font-semibold text-slate-700">{a.category}</span>
-                            <div className="text-[11px] text-slate-500 truncate">
-                              {a.brand} {a.model} — S/N: {a.serial_number}
+                            <div className="flex items-center gap-1">
+                              <span className="font-mono font-bold text-slate-800">{a.asset_tag}</span>
+                              <CopyButton value={a.asset_tag} label="tag" />
+                              <span className="text-slate-400 mx-0.5">•</span>
+                              <span className="font-semibold text-slate-700">{a.category}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 truncate flex items-center gap-1">
+                              <span>
+                                {a.brand} {a.model} — S/N: {a.serial_number}
+                              </span>
+                              <CopyButton value={a.serial_number} label="número de serie" />
                             </div>
                           </div>
                           <button

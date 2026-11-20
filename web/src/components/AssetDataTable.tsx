@@ -15,6 +15,7 @@ import {
 } from '@phosphor-icons/react';
 import { Asset, AssetStatus } from '../types';
 import { HardwareIcon, BrandTag } from './HardwareIcon';
+import { CopyButton } from './CopyButton';
 
 export type GroupByOption = 'none' | 'category' | 'status' | 'department' | 'location';
 export type SortField = 'asset_tag' | 'category' | 'serial_number' | 'status' | 'assigned_to_name' | 'location' | 'last_audited_at';
@@ -262,6 +263,7 @@ export const AssetDataTable: React.FC<AssetDataTableProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="font-mono font-bold text-slate-900 text-xs">{a.asset_tag}</span>
+              <CopyButton value={a.asset_tag} label="tag" />
               <BrandTag brand={a.brand} />
             </div>
             <div className="text-[11px] text-slate-500 truncate max-w-[180px]">
@@ -277,7 +279,10 @@ export const AssetDataTable: React.FC<AssetDataTableProps> = ({
 
       {visibleCols.serial_number && (
         <td className="py-3 px-4 font-mono text-slate-700 tabular-nums whitespace-nowrap">
-          {a.serial_number || '—'}
+          <div className="inline-flex items-center gap-1">
+            <span>{a.serial_number || '—'}</span>
+            <CopyButton value={a.serial_number} label="número de serie" />
+          </div>
         </td>
       )}
 

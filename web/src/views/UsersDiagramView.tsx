@@ -51,6 +51,7 @@ import { api } from '../api';
 import { ResponsivaModal } from '../components/ResponsivaModal';
 import { SwapModal } from '../components/SwapModal';
 import { UserFormModal } from '../components/UserFormModal';
+import { CopyButton } from '../components/CopyButton';
 import { QuickUserAuditModal } from '../components/QuickUserAuditModal';
 import { QuickUserAssignModal } from '../components/QuickUserAssignModal';
 import { AssetFormModal } from '../components/AssetFormModal';
@@ -569,8 +570,11 @@ export const UsersDiagramView: React.FC = () => {
                             <span className="font-bold text-slate-900 block group-hover:text-sky-700 transition">
                               {u.full_name}
                             </span>
-                            <span className="text-[11px] font-mono text-slate-500">
-                              {u.employee_code} • {u.email}
+                            <span className="text-[11px] font-mono text-slate-500 inline-flex items-center gap-1">
+                              <span>{u.employee_code}</span>
+                              <CopyButton value={u.employee_code} label="código de empleado" />
+                              <span>• {u.email}</span>
+                              <CopyButton value={u.email} label="correo" />
                             </span>
                           </div>
                         </div>
@@ -872,17 +876,21 @@ export const UsersDiagramView: React.FC = () => {
                     <h3 className="text-base font-bold text-slate-900 leading-tight">
                       {currentUser.full_name}
                     </h3>
-                    <span className="font-mono text-xs font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
-                      {currentUser.employee_code}
+                    <span className="font-mono text-xs font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200 inline-flex items-center gap-1">
+                      <span>{currentUser.employee_code}</span>
+                      <CopyButton value={currentUser.employee_code} label="código de empleado" />
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                       ACTIVO
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {currentUser.email}
-                    {currentUser.position ? ` • ${currentUser.position}` : ''} • {currentUser.department} • Sede:{' '}
-                    <strong>{currentUser.location}</strong>
+                  <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-1">
+                    <span>{currentUser.email}</span>
+                    <CopyButton value={currentUser.email} label="correo" />
+                    <span>
+                      {currentUser.position ? `• ${currentUser.position}` : ''} • {currentUser.department} • Sede:{' '}
+                      <strong>{currentUser.location}</strong>
+                    </span>
                   </p>
                 </div>
               </div>
@@ -1088,9 +1096,12 @@ export const UsersDiagramView: React.FC = () => {
                                 )}
                               </div>
                               <div>
-                                <span className="font-mono font-bold text-slate-900 block text-xs">
-                                  {ast.asset_tag}
-                                </span>
+                                <div className="flex items-center gap-1">
+                                  <span className="font-mono font-bold text-slate-900 text-xs">
+                                    {ast.asset_tag}
+                                  </span>
+                                  <CopyButton value={ast.asset_tag} label="tag" />
+                                </div>
                                 <span className="text-[10px] text-slate-500 font-semibold uppercase">
                                   {ast.category}
                                 </span>
@@ -1103,8 +1114,9 @@ export const UsersDiagramView: React.FC = () => {
                             <span className="font-bold text-slate-800 block text-xs">
                               {ast.brand} {ast.model}
                             </span>
-                            <span className="text-[11px] font-mono text-slate-500">
-                              S/N: {ast.serial_number}
+                            <span className="text-[11px] font-mono text-slate-500 inline-flex items-center gap-1">
+                              <span>S/N: {ast.serial_number}</span>
+                              <CopyButton value={ast.serial_number} label="número de serie" />
                             </span>
                           </td>
 
@@ -1126,13 +1138,15 @@ export const UsersDiagramView: React.FC = () => {
                           {/* Especificaciones */}
                           <td className="py-3 px-4 text-slate-600 text-[11px]">
                             {ast.specs?.imei && (
-                              <span className="block font-mono text-[10px] text-emerald-700">
-                                IMEI: {ast.specs.imei}
+                              <span className="font-mono text-[10px] text-emerald-700 flex items-center gap-1">
+                                <span>IMEI: {ast.specs.imei}</span>
+                                <CopyButton value={ast.specs.imei} label="IMEI" />
                               </span>
                             )}
                             {ast.specs?.puk && (
-                              <span className="block font-mono text-[10px] text-purple-700">
-                                PUK: {ast.specs.puk}
+                              <span className="font-mono text-[10px] text-purple-700 flex items-center gap-1">
+                                <span>PUK: {ast.specs.puk}</span>
+                                <CopyButton value={ast.specs.puk} label="PUK" />
                               </span>
                             )}
                             {ast.specs?.ram || ast.specs?.cpu ? (

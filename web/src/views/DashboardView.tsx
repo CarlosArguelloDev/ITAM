@@ -14,6 +14,7 @@ import { api } from '../api';
 import { NavView } from '../components/Sidebar';
 import { SanJuanMap } from '../components/SanJuanMap';
 import { HardwareIcon, BrandTag } from '../components/HardwareIcon';
+import { CopyButton } from '../components/CopyButton';
 
 interface DashboardViewProps {
   onNavigate: (view: NavView) => void;
@@ -411,14 +412,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onOpen
                                 {item.model || item.category}
                               </span>
                             </div>
-                            <div className="text-[11px] text-slate-400 font-mono">
-                              {item.asset_tag} • {item.category}
+                            <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
+                              <span>{item.asset_tag} • {item.category}</span>
+                              <CopyButton value={item.asset_tag} label="tag" />
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="py-3 px-4 font-mono text-slate-600 tabular-nums">
-                        {item.serial_number}
+                        <div className="inline-flex items-center gap-1">
+                          <span>{item.serial_number}</span>
+                          <CopyButton value={item.serial_number} label="número de serie" />
+                        </div>
                       </td>
                       <td className="py-3 pl-4 text-right font-semibold text-slate-800">
                         {item.assigned_to_name}
