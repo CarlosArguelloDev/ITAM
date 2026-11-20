@@ -19,32 +19,39 @@ import {
   Cpu,
   Headphones,
   FileText,
-  ArrowLeftRight,
+  ArrowsLeftRight as ArrowLeftRight,
   PlusCircle,
-  AlertTriangle,
-  History,
-  Shield,
+  Warning as AlertTriangle,
+  ClockCounterClockwise as History,
+  ShieldCheck as Shield,
   Clock,
   CheckCircle,
-  ExternalLink,
-  Search,
+  ArrowSquareOut as ExternalLink,
+  MagnifyingGlass as Search,
   ArrowLeft,
   UserPlus,
-  RefreshCw,
-  Box,
-  Share2,
+  ArrowsClockwise as RefreshCw,
+  Package as Box,
+  ShareNetwork as Share2,
   Eye,
   Barcode,
-  Smartphone,
+  DeviceMobile as Smartphone,
   Radio,
   Printer,
-  Edit3,
-  Trash2,
-  List,
-  Network,
+  PencilSimple as Edit3,
+  Trash as Trash2,
+  ListBullets as List,
+  Graph as Network,
   Check,
   Tag,
-} from 'lucide-react';
+  Rows,
+  CaretDown,
+  CaretRight,
+  CaretLeft,
+  X,
+  ArrowsDownUp,
+} from '@phosphor-icons/react';
+import { HardwareIcon, BrandTag } from '../components/HardwareIcon';
 
 import { User, Asset, UserDiagramResponse, AssetHistory, AlertItem } from '../types';
 import { api } from '../api';
@@ -198,6 +205,12 @@ export const UsersDiagramView: React.FC = () => {
   const [selectedDept, setSelectedDept] = useState<string>('ALL');
   const [selectedLocation, setSelectedLocation] = useState<string>('ALL');
   const [custodyFilter, setCustodyFilter] = useState<'ALL' | 'WITH_ASSETS' | 'WITHOUT_ASSETS'>('ALL');
+  const [userGroupBy, setUserGroupBy] = useState<'none' | 'department' | 'location'>('none');
+  const [collapsedUserGroups, setCollapsedUserGroups] = useState<Record<string, boolean>>({});
+  const [userSortBy, setUserSortBy] = useState<'name_asc' | 'name_desc' | 'assets_desc' | 'dept_asc'>('name_asc');
+  const [userPageSize, setUserPageSize] = useState(25);
+  const [userPage, setUserPage] = useState(1);
+  const [assetSearchQuery, setAssetSearchQuery] = useState('');
 
   // Modal para crear / editar usuario
   const [userModalOpen, setUserModalOpen] = useState(false);
@@ -398,12 +411,14 @@ export const UsersDiagramView: React.FC = () => {
   }, [users]);
 
   const filteredUsers = useMemo(() => {
-    return users.filter((u) => {
+    const list = users.filter((u) => {
+      const q = searchQuery.toLowerCase().trim();
       const matchSearch =
-        !searchQuery.trim() ||
-        u.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.employee_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        u.full_name.toLowerCase().includes(q) ||
+        u.employee_code.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        (u.position || '').toLowerCase().includes(q);
 
       const matchDept = selectedDept === 'ALL' || u.department === selectedDept;
       const matchLoc = selectedLocation === 'ALL' || u.location === selectedLocation;
@@ -416,7 +431,40 @@ export const UsersDiagramView: React.FC = () => {
 
       return matchSearch && matchDept && matchLoc && matchCustody;
     });
-  }, [users, searchQuery, selectedDept, selectedLocation, custodyFilter]);
+
+    list.sort((a, b) => {
+      if (userSortBy === 'name_desc') return b.full_name.localeCompare(a.full_name);
+      if (userSortBy === 'dept_asc') return a.department.localeCompare(b.department) || a.full_name.localeCompare(b.full_name);
+      if (userSortBy === 'assets_desc') {
+        const ca = a.assets_count || a.assigned_assets?.length || 0;
+        const cb = b.assets_count || b.assigned_assets?.length || 0;
+        return cb - ca || a.full_name.localeCompare(b.full_name);
+      }
+      return a.full_name.localeCompare(b.full_name);
+    });
+
+    return list;
+  }, [users, searchQuery, selectedDept, selectedLocation, custodyFilter, userSortBy]);
+
+  const userTotalPages = Math.max(1, Math.ceil(filteredUsers.length / userPageSize));
+  const safeUserPage = Math.min(userPage, userTotalPages);
+  const userStartIdx = (safeUserPage - 1) * userPageSize;
+  const userEndIdx = Math.min(userStartIdx + userPageSize, filteredUsers.length);
+  const pagedUsers = useMemo(
+    () => filteredUsers.slice(userStartIdx, userEndIdx),
+    [filteredUsers, userStartIdx, userEndIdx]
+  );
+
+  const groupedUsers = useMemo(() => {
+    if (userGroupBy === 'none') return null;
+    const map = new Map<string, User[]>();
+    filteredUsers.forEach((u) => {
+      const key = userGroupBy === 'department' ? u.department || 'Sin departamento' : u.location || 'Sin sede';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(u);
+    });
+    return Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length);
+  }, [filteredUsers, userGroupBy]);
 
   const currentUser = diagramData?.user;
 
@@ -438,14 +486,15 @@ export const UsersDiagramView: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setUserModalOpen(true)}
-              className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition"
+              className="flex items-center gap-2 bg-[#5B4FE9] hover:bg-[#4B3FD8] text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xs transition active:scale-[0.98]"
             >
-              <UserPlus className="w-4 h-4" />
+              <UserPlus weight="duotone" className="w-4 h-4" />
               <span>Nuevo Colaborador</span>
             </button>
             <button
               onClick={loadUsers}
-              className="p-2.5 text-slate-500 hover:bg-slate-100 rounded-xl border border-slate-200"
+              aria-label="Recargar colaboradores"
+              className="p-2.5 text-slate-500 hover:bg-slate-100 rounded-xl border border-[#E6E8F0]"
               title="Recargar colaboradores"
             >
               <RefreshCw className={`w-4 h-4 ${loadingUsers ? 'animate-spin' : ''}`} />
@@ -453,27 +502,47 @@ export const UsersDiagramView: React.FC = () => {
           </div>
         </div>
 
-        {/* Barra de Filtros y Búsqueda */}
-        <div className="bg-white p-4 rounded-2xl border border-[#E2E8F0] shadow-sm space-y-3">
+        {/* Barra de Filtros, Agrupación y Orden */}
+        <div className="bg-white p-4 rounded-2xl border border-[#E6E8F0] shadow-2xs space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-            {/* Buscador */}
-            <div className="sm:col-span-5 relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+            {/* Buscador instantáneo */}
+            <div className="sm:col-span-4 relative">
+              <Search weight="duotone" className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por nombre, código de nómina o correo..."
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setUserPage(1);
+                }}
+                placeholder="Buscar nombre, nómina, correo o puesto..."
+                className="w-full pl-10 pr-8 py-2 bg-[#F6F7FB] border border-[#E6E8F0] rounded-xl text-xs text-slate-900 focus:bg-white transition"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setUserPage(1);
+                  }}
+                  aria-label="Limpiar búsqueda"
+                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-700"
+                >
+                  <X weight="bold" className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
             {/* Filtro Departamento */}
             <div className="sm:col-span-3">
               <select
                 value={selectedDept}
-                onChange={(e) => setSelectedDept(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                onChange={(e) => {
+                  setSelectedDept(e.target.value);
+                  setUserPage(1);
+                }}
+                aria-label="Filtrar por departamento"
+                className="w-full bg-[#F6F7FB] border border-[#E6E8F0] rounded-xl px-3 py-2 text-xs font-semibold text-slate-800"
               >
                 <option value="ALL">Todos los Departamentos</option>
                 {departments.map((d) => (
@@ -488,8 +557,12 @@ export const UsersDiagramView: React.FC = () => {
             <div className="sm:col-span-2">
               <select
                 value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                onChange={(e) => {
+                  setSelectedLocation(e.target.value);
+                  setUserPage(1);
+                }}
+                aria-label="Filtrar por sede"
+                className="w-full bg-[#F6F7FB] border border-[#E6E8F0] rounded-xl px-3 py-2 text-xs font-semibold text-slate-800"
               >
                 <option value="ALL">Todas las Sedes</option>
                 {locations.map((loc) => (
@@ -501,11 +574,15 @@ export const UsersDiagramView: React.FC = () => {
             </div>
 
             {/* Filtro Custodia */}
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-3">
               <select
                 value={custodyFilter}
-                onChange={(e) => setCustodyFilter(e.target.value as any)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                onChange={(e) => {
+                  setCustodyFilter(e.target.value as any);
+                  setUserPage(1);
+                }}
+                aria-label="Filtrar por custodia"
+                className="w-full bg-[#F6F7FB] border border-[#E6E8F0] rounded-xl px-3 py-2 text-xs font-semibold text-slate-800"
               >
                 <option value="ALL">Custodia: Todos</option>
                 <option value="WITH_ASSETS">Con Equipos</option>
@@ -514,34 +591,54 @@ export const UsersDiagramView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-            <span>
-              Mostrando <strong>{filteredUsers.length}</strong> de <strong>{users.length}</strong> colaboradores
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 pt-2 border-t border-slate-100">
+            <span className="tabular-nums">
+              Mostrando <strong className="text-slate-800">{filteredUsers.length}</strong> de{' '}
+              <strong className="text-slate-800">{users.length}</strong> colaboradores
             </span>
-            <div className="flex items-center gap-4 text-[11px]">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-sky-500" />
-                Laptops
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-teal-500" />
-                Docking Stations
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-indigo-500" />
-                Monitores
-              </span>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-1.5 bg-[#F6F7FB] border border-[#E6E8F0] rounded-xl px-2.5 py-1">
+                <Rows weight="duotone" className="w-3.5 h-3.5 text-slate-500" />
+                <select
+                  value={userGroupBy}
+                  onChange={(e) => setUserGroupBy(e.target.value as any)}
+                  aria-label="Agrupar colaboradores por"
+                  className="bg-transparent font-semibold text-slate-700 text-xs focus:outline-none cursor-pointer"
+                >
+                  <option value="none">Sin agrupar</option>
+                  <option value="department">Agrupar: Departamento</option>
+                  <option value="location">Agrupar: Sede</option>
+                </select>
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 bg-[#F6F7FB] border border-[#E6E8F0] rounded-xl px-2.5 py-1">
+                <ArrowsDownUp weight="duotone" className="w-3.5 h-3.5 text-slate-500" />
+                <select
+                  value={userSortBy}
+                  onChange={(e) => setUserSortBy(e.target.value as any)}
+                  aria-label="Ordenar colaboradores por"
+                  className="bg-transparent font-semibold text-slate-700 text-xs focus:outline-none cursor-pointer"
+                >
+                  <option value="name_asc">Orden: Nombre A–Z</option>
+                  <option value="name_desc">Orden: Nombre Z–A</option>
+                  <option value="assets_desc">Orden: Más equipos</option>
+                  <option value="dept_asc">Orden: Departamento</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Tabla de Colaboradores */}
-        <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden">
+        {/* Tabla de Colaboradores con Primera Columna Fija */}
+        <div className="bg-white rounded-2xl border border-[#E6E8F0] shadow-2xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50/70 border-b border-slate-200 text-slate-400 font-semibold text-[10px] uppercase tracking-wider">
-                  <th className="py-3 px-6">Colaborador / Nómina</th>
+                <tr className="bg-[#F8FAFC] border-b border-[#E6E8F0] text-slate-500 font-semibold text-[11px] uppercase tracking-wider">
+                  <th className="sticky left-0 z-10 bg-[#F8FAFC] py-3 px-6 border-r border-slate-100 shadow-[2px_0_6px_-2px_rgba(15,23,42,0.06)]">
+                    Colaborador / Nómina
+                  </th>
                   <th className="py-3 px-4">Área y Sede</th>
                   <th className="py-3 px-6">Equipos Asignados en Custodia</th>
                   <th className="py-3 px-3 text-center">Total</th>
@@ -550,20 +647,20 @@ export const UsersDiagramView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredUsers.map((u) => {
+                {(() => {
+                  const renderUserRow = (u: User) => {
                   const totalAssets = u.assets_count || u.assigned_assets?.length || 0;
-                  const assignedList = u.assigned_assets || [];
 
                   return (
                     <tr
                       key={u.id}
                       onClick={() => setSelectedUserId(u.id)}
-                      className="hover:bg-slate-50/80 cursor-pointer transition group"
+                      className="hover:bg-[#F8FAFC] cursor-pointer transition group"
                     >
-                      {/* Colaborador */}
-                      <td className="py-3.5 px-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-600 to-sky-400 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                      {/* Colaborador (Pinned Left) */}
+                      <td className="sticky left-0 z-10 bg-white group-hover:bg-[#F8FAFC] py-3.5 px-6 border-r border-slate-100 shadow-[2px_0_6px_-2px_rgba(15,23,42,0.06)]">
+                        <div className="flex items-center gap-3 min-w-[240px]">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#5B4FE9] to-indigo-400 text-white flex items-center justify-center font-bold text-sm shadow-2xs shrink-0">
                             {u.full_name.charAt(0)}
                           </div>
                           <div>
@@ -738,7 +835,44 @@ export const UsersDiagramView: React.FC = () => {
                       </td>
                     </tr>
                   );
-                })}
+                  };
+
+                  if (groupedUsers) {
+                    return groupedUsers.map(([groupName, items]) => {
+                      const isCollapsed = !!collapsedUserGroups[groupName];
+                      return (
+                        <React.Fragment key={groupName}>
+                          <tr
+                            onClick={() =>
+                              setCollapsedUserGroups((prev) => ({
+                                ...prev,
+                                [groupName]: !prev[groupName],
+                              }))
+                            }
+                            className="bg-[#F6F7FB] hover:bg-slate-100 cursor-pointer transition"
+                          >
+                            <td colSpan={6} className="py-2.5 px-6 font-bold text-slate-800">
+                              <div className="flex items-center gap-2">
+                                {isCollapsed ? (
+                                  <CaretRight weight="bold" className="w-3.5 h-3.5 text-slate-500" />
+                                ) : (
+                                  <CaretDown weight="bold" className="w-3.5 h-3.5 text-[#5B4FE9]" />
+                                )}
+                                <span>{groupName}</span>
+                                <span className="text-[11px] font-semibold text-slate-500 tabular-nums">
+                                  ({items.length})
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                          {!isCollapsed && items.map(renderUserRow)}
+                        </React.Fragment>
+                      );
+                    });
+                  }
+
+                  return pagedUsers.map(renderUserRow);
+                })()}
 
                 {filteredUsers.length === 0 && (
                   <tr>
@@ -750,6 +884,56 @@ export const UsersDiagramView: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Footer de Paginación */}
+          {userGroupBy === 'none' && filteredUsers.length > 0 && (
+            <div className="px-5 py-3 border-t border-[#E6E8F0] bg-[#FAFBFD] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600">
+              <div className="flex items-center gap-2">
+                <span>Mostrar</span>
+                <select
+                  value={userPageSize}
+                  onChange={(e) => {
+                    setUserPageSize(Number(e.target.value));
+                    setUserPage(1);
+                  }}
+                  aria-label="Colaboradores por página"
+                  className="bg-white border border-[#E6E8F0] rounded-lg px-2 py-1 font-semibold text-slate-800"
+                >
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span>por página</span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="tabular-nums font-medium">
+                  {userStartIdx + 1}–{userEndIdx} de {filteredUsers.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={safeUserPage <= 1}
+                    onClick={() => setUserPage((p) => Math.max(1, p - 1))}
+                    aria-label="Página anterior"
+                    className="p-1.5 rounded-lg bg-white border border-[#E6E8F0] text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                  >
+                    <CaretLeft weight="bold" className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={safeUserPage >= userTotalPages}
+                    onClick={() => setUserPage((p) => Math.min(userTotalPages, p + 1))}
+                    aria-label="Página siguiente"
+                    className="p-1.5 rounded-lg bg-white border border-[#E6E8F0] text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                  >
+                    <CaretRight weight="bold" className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Alta / Edición de Colaborador */}
@@ -1018,15 +1202,36 @@ export const UsersDiagramView: React.FC = () => {
                     Administra, edita detalles, imprime etiquetas Brother o desasigna activos directamente
                   </p>
                 </div>
-                <div className="flex items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <div className="relative">
+                    <Search weight="duotone" className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      value={assetSearchQuery}
+                      onChange={(e) => setAssetSearchQuery(e.target.value)}
+                      placeholder="Filtrar equipos..."
+                      aria-label="Filtrar equipos del colaborador"
+                      className="pl-8 pr-7 py-1.5 bg-white border border-[#E6E8F0] rounded-xl text-xs text-slate-800 w-44 sm:w-56"
+                    />
+                    {assetSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setAssetSearchQuery('')}
+                        aria-label="Limpiar filtro de equipos"
+                        className="absolute right-2 top-2 text-slate-400 hover:text-slate-700"
+                      >
+                        <X weight="bold" className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                   {(currentUser.assigned_assets?.length || 0) > 0 && (
                     <button
                       onClick={handlePrintAllLabels}
                       disabled={Boolean(batchPrintProgress) || printingAssetId !== null}
-                      className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs transition disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-xs transition disabled:opacity-50"
                       title="Encolar e imprimir secuencialmente las etiquetas de todos los equipos de este usuario en la Brother PT-D410"
                     >
-                      <Printer className={`w-3.5 h-3.5 ${batchPrintProgress ? 'animate-spin' : ''}`} />
+                      <Printer weight="duotone" className={`w-3.5 h-3.5 ${batchPrintProgress ? 'animate-spin' : ''}`} />
                       <span>
                         {batchPrintProgress
                           ? `Imprimiendo ${batchPrintProgress.current}/${batchPrintProgress.total}...`
@@ -1034,17 +1239,19 @@ export const UsersDiagramView: React.FC = () => {
                       </span>
                     </button>
                   )}
-                  <span className="text-xs font-mono font-bold text-slate-600 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
-                    {currentUser.assigned_assets?.length || 0} activos asignados
+                  <span className="text-xs font-mono font-bold text-slate-600 bg-white px-2.5 py-1.5 rounded-xl border border-[#E6E8F0] tabular-nums">
+                    {currentUser.assigned_assets?.length || 0} activos
                   </span>
                 </div>
               </div>
 
               <div className="flex-1 overflow-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50/90 text-slate-400 font-semibold text-[10px] uppercase tracking-wider sticky top-0 border-b border-slate-200">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-[#F8FAFC] text-slate-500 font-semibold text-[11px] uppercase tracking-wider sticky top-0 z-20 border-b border-[#E6E8F0]">
                     <tr>
-                      <th className="py-3 px-5">Categoría / Tag</th>
+                      <th className="sticky left-0 z-10 bg-[#F8FAFC] py-3 px-5 border-r border-slate-100 shadow-[2px_0_6px_-2px_rgba(15,23,42,0.06)]">
+                        Categoría / Tag
+                      </th>
                       <th className="py-3 px-4">Dispositivo y Serie</th>
                       <th className="py-3 px-4">Jerarquía / Vínculo</th>
                       <th className="py-3 px-4">Especificaciones</th>
@@ -1053,47 +1260,26 @@ export const UsersDiagramView: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {(currentUser.assigned_assets || []).map((ast) => {
-                      const isLaptop = ast.category === 'LAPTOP' || ast.category === 'WORKSTATION';
-                      const isPhone = ast.category === 'TELEFONO' || ast.category === 'IPAD';
-                      const isMonitor = ast.category === 'MONITOR';
-                      const isDock = ast.category === 'DOCKING';
-                      const isSim = ast.category === 'SIM-CARD';
-                      const isAudio = ast.category === 'AUDIFONOS';
-                      const isScanner = ast.category === 'SCANNER';
-
+                    {(currentUser.assigned_assets || [])
+                      .filter((ast) => {
+                        const q = assetSearchQuery.trim().toLowerCase();
+                        if (!q) return true;
+                        return (
+                          ast.asset_tag.toLowerCase().includes(q) ||
+                          (ast.serial_number || '').toLowerCase().includes(q) ||
+                          (ast.brand || '').toLowerCase().includes(q) ||
+                          (ast.model || '').toLowerCase().includes(q) ||
+                          (ast.category || '').toLowerCase().includes(q)
+                        );
+                      })
+                      .map((ast) => {
                       return (
-                        <tr key={ast.id} className="hover:bg-slate-50/70 transition">
-                          {/* Categoría y Tag */}
-                          <td className="py-3 px-5">
-                            <div className="flex items-center gap-2.5">
-                              <div
-                                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                  isLaptop
-                                    ? 'bg-sky-100 text-sky-700'
-                                    : isPhone
-                                    ? 'bg-emerald-100 text-emerald-700'
-                                    : isMonitor
-                                    ? 'bg-indigo-100 text-indigo-700'
-                                    : isDock
-                                    ? 'bg-teal-100 text-teal-700'
-                                    : isSim
-                                    ? 'bg-purple-100 text-purple-700'
-                                    : isAudio
-                                    ? 'bg-amber-100 text-amber-700'
-                                    : 'bg-slate-100 text-slate-700'
-                                }`}
-                              >
-                                {isLaptop && <Laptop className="w-4 h-4" />}
-                                {isPhone && <Smartphone className="w-4 h-4" />}
-                                {isMonitor && <Monitor className="w-4 h-4" />}
-                                {isDock && <Cpu className="w-4 h-4" />}
-                                {isSim && <Radio className="w-4 h-4" />}
-                                {isAudio && <Headphones className="w-4 h-4" />}
-                                {isScanner && <Barcode className="w-4 h-4" />}
-                                {!isLaptop && !isPhone && !isMonitor && !isDock && !isSim && !isAudio && !isScanner && (
-                                  <Box className="w-4 h-4" />
-                                )}
+                        <tr key={ast.id} className="group hover:bg-[#F8FAFC] transition">
+                          {/* Categoría y Tag (Pinned Left) */}
+                          <td className="sticky left-0 z-10 bg-white group-hover:bg-[#F8FAFC] py-3 px-5 border-r border-slate-100 shadow-[2px_0_6px_-2px_rgba(15,23,42,0.06)]">
+                            <div className="flex items-center gap-2.5 min-w-[180px]">
+                              <div className="w-8 h-8 rounded-xl bg-[#F6F7FB] border border-[#E6E8F0] flex items-center justify-center shrink-0">
+                                <HardwareIcon category={ast.category} className="w-4 h-4" />
                               </div>
                               <div>
                                 <div className="flex items-center gap-1">
@@ -1111,10 +1297,13 @@ export const UsersDiagramView: React.FC = () => {
 
                           {/* Dispositivo y Serie */}
                           <td className="py-3 px-4">
-                            <span className="font-bold text-slate-800 block text-xs">
-                              {ast.brand} {ast.model}
-                            </span>
-                            <span className="text-[11px] font-mono text-slate-500 inline-flex items-center gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <BrandTag brand={ast.brand} />
+                              <span className="font-bold text-slate-800 text-xs">
+                                {ast.model || ast.category}
+                              </span>
+                            </div>
+                            <span className="text-[11px] font-mono text-slate-500 inline-flex items-center gap-1 mt-0.5">
                               <span>S/N: {ast.serial_number}</span>
                               <CopyButton value={ast.serial_number} label="número de serie" />
                             </span>
