@@ -15,7 +15,7 @@ import (
 func (h *AppHandler) ListConsumables(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.DB.Query(`
 		SELECT id, code, name, kind, brand, color, compatible_models, location,
-		       stock, min_stock, notes, created_at, updated_at
+		       stock, min_stock, ideal_stock, unit_cost, page_yield, notes, created_at, updated_at
 		FROM consumables
 		ORDER BY brand ASC, code ASC
 	`)
@@ -30,7 +30,8 @@ func (h *AppHandler) ListConsumables(w http.ResponseWriter, r *http.Request) {
 		var c models.Consumable
 		if err := rows.Scan(
 			&c.ID, &c.Code, &c.Name, &c.Kind, &c.Brand, &c.Color, &c.CompatibleModels,
-			&c.Location, &c.Stock, &c.MinStock, &c.Notes, &c.CreatedAt, &c.UpdatedAt,
+			&c.Location, &c.Stock, &c.MinStock, &c.IdealStock, &c.UnitCost, &c.PageYield,
+			&c.Notes, &c.CreatedAt, &c.UpdatedAt,
 		); err != nil {
 			ErrorResponse(w, http.StatusInternalServerError, "Error leyendo consumibles: "+err.Error())
 			return
@@ -71,6 +72,15 @@ func (h *AppHandler) CreateConsumable(w http.ResponseWriter, r *http.Request) {
 	if req.MinStock < 0 {
 		req.MinStock = 0
 	}
+	if req.IdealStock <= 0 {
+		req.IdealStock = 4
+	}
+	if req.UnitCost < 0 {
+		req.UnitCost = 0
+	}
+	if req.PageYield < 0 {
+		req.PageYield = 0
+	}
 
 	newID := "cns-" + uuid.New().String()[:8]
 
@@ -82,10 +92,10 @@ func (h *AppHandler) CreateConsumable(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	_, err = tx.Exec(`
-		INSERT INTO consumables (id, code, name, kind, brand, color, compatible_models, location, stock, min_stock, notes)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO consumables (id, code, name, kind, brand, color, compatible_models, location, stock, min_stock, ideal_stock, unit_cost, page_yield, notes)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, newID, req.Code, req.Name, req.Kind, req.Brand, req.Color, strings.TrimSpace(req.CompatibleModels),
-		req.Location, req.Stock, req.MinStock, strings.TrimSpace(req.Notes))
+		req.Location, req.Stock, req.MinStock, req.IdealStock, req.UnitCost, req.PageYield, strings.TrimSpace(req.Notes))
 	if err != nil {
 		ErrorResponse(w, http.StatusConflict, "Error al registrar consumible (verifique que el código no esté repetido): "+err.Error())
 		return
@@ -111,11 +121,12 @@ func (h *AppHandler) CreateConsumable(w http.ResponseWriter, r *http.Request) {
 	var created models.Consumable
 	err = h.DB.QueryRow(`
 		SELECT id, code, name, kind, brand, color, compatible_models, location,
-		       stock, min_stock, notes, created_at, updated_at
+		       stock, min_stock, ideal_stock, unit_cost, page_yield, notes, created_at, updated_at
 		FROM consumables WHERE id = ?
 	`, newID).Scan(
 		&created.ID, &created.Code, &created.Name, &created.Kind, &created.Brand, &created.Color,
 		&created.CompatibleModels, &created.Location, &created.Stock, &created.MinStock,
+		&created.IdealStock, &created.UnitCost, &created.PageYield,
 		&created.Notes, &created.CreatedAt, &created.UpdatedAt,
 	)
 	if err != nil {
@@ -146,13 +157,16 @@ func (h *AppHandler) UpdateConsumable(w http.ResponseWriter, r *http.Request) {
 		req.Location = "OPM"
 	}
 
+	if req.IdealStock <= 0 {
+		req.IdealStock = 4
+	}
 	res, err := h.DB.Exec(`
 		UPDATE consumables
 		SET code = ?, name = ?, kind = ?, brand = ?, color = ?, compatible_models = ?,
-		    location = ?, min_stock = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+		    location = ?, min_stock = ?, ideal_stock = ?, unit_cost = ?, page_yield = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
 	`, req.Code, req.Name, req.Kind, req.Brand, req.Color, strings.TrimSpace(req.CompatibleModels),
-		req.Location, req.MinStock, strings.TrimSpace(req.Notes), id)
+		req.Location, req.MinStock, req.IdealStock, req.UnitCost, req.PageYield, strings.TrimSpace(req.Notes), id)
 	if err != nil {
 		ErrorResponse(w, http.StatusConflict, "Error al actualizar consumible: "+err.Error())
 		return
@@ -165,11 +179,12 @@ func (h *AppHandler) UpdateConsumable(w http.ResponseWriter, r *http.Request) {
 	var updated models.Consumable
 	_ = h.DB.QueryRow(`
 		SELECT id, code, name, kind, brand, color, compatible_models, location,
-		       stock, min_stock, notes, created_at, updated_at
+		       stock, min_stock, ideal_stock, unit_cost, page_yield, notes, created_at, updated_at
 		FROM consumables WHERE id = ?
 	`, id).Scan(
 		&updated.ID, &updated.Code, &updated.Name, &updated.Kind, &updated.Brand, &updated.Color,
 		&updated.CompatibleModels, &updated.Location, &updated.Stock, &updated.MinStock,
+		&updated.IdealStock, &updated.UnitCost, &updated.PageYield,
 		&updated.Notes, &updated.CreatedAt, &updated.UpdatedAt,
 	)
 	JSONResponse(w, http.StatusOK, updated)
@@ -273,11 +288,12 @@ func (h *AppHandler) MoveConsumable(w http.ResponseWriter, r *http.Request) {
 	var updated models.Consumable
 	_ = h.DB.QueryRow(`
 		SELECT id, code, name, kind, brand, color, compatible_models, location,
-		       stock, min_stock, notes, created_at, updated_at
+		       stock, min_stock, ideal_stock, unit_cost, page_yield, notes, created_at, updated_at
 		FROM consumables WHERE id = ?
 	`, id).Scan(
 		&updated.ID, &updated.Code, &updated.Name, &updated.Kind, &updated.Brand, &updated.Color,
 		&updated.CompatibleModels, &updated.Location, &updated.Stock, &updated.MinStock,
+		&updated.IdealStock, &updated.UnitCost, &updated.PageYield,
 		&updated.Notes, &updated.CreatedAt, &updated.UpdatedAt,
 	)
 	JSONResponse(w, http.StatusOK, updated)

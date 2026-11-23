@@ -266,6 +266,9 @@ export interface Consumable {
   location: LocationType;
   stock: number;
   min_stock: number;
+  ideal_stock: number;
+  unit_cost: number;
+  page_yield: number;
   notes: string;
   created_at: string;
   updated_at: string;

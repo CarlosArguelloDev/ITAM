@@ -321,6 +321,9 @@ type Consumable struct {
 	Location         string    `json:"location"`
 	Stock            int       `json:"stock"`
 	MinStock         int       `json:"min_stock"`
+	IdealStock       int       `json:"ideal_stock"`
+	UnitCost         float64   `json:"unit_cost"`
+	PageYield        int       `json:"page_yield"`
 	Notes            string    `json:"notes"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
@@ -349,9 +352,12 @@ type CreateConsumableRequest struct {
 	Color            string `json:"color"`
 	CompatibleModels string `json:"compatible_models"`
 	Location         string `json:"location"`
-	Stock            int    `json:"stock"`
-	MinStock         int    `json:"min_stock"`
-	Notes            string `json:"notes"`
+	Stock            int     `json:"stock"`
+	MinStock         int     `json:"min_stock"`
+	IdealStock       int     `json:"ideal_stock"`
+	UnitCost         float64 `json:"unit_cost"`
+	PageYield        int     `json:"page_yield"`
+	Notes            string  `json:"notes"`
 }
 
 type ConsumableMovementRequest struct {

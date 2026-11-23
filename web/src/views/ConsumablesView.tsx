@@ -95,6 +95,9 @@ export const ConsumablesView: React.FC = () => {
   const [location, setLocation] = useState<LocationType>('OPM');
   const [stock, setStock] = useState(1);
   const [minStock, setMinStock] = useState(2);
+  const [idealStock, setIdealStock] = useState(4);
+  const [unitCost, setUnitCost] = useState(0);
+  const [pageYield, setPageYield] = useState(0);
   const [notes, setNotes] = useState('');
   const [savingForm, setSavingForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -142,6 +145,9 @@ export const ConsumablesView: React.FC = () => {
     setLocation('OPM');
     setStock(1);
     setMinStock(2);
+    setIdealStock(4);
+    setUnitCost(0);
+    setPageYield(0);
     setNotes('');
     setFormError(null);
     setFormOpen(true);
@@ -158,6 +164,9 @@ export const ConsumablesView: React.FC = () => {
     setLocation(c.location);
     setStock(c.stock);
     setMinStock(c.min_stock);
+    setIdealStock(c.ideal_stock || 4);
+    setUnitCost(c.unit_cost || 0);
+    setPageYield(c.page_yield || 0);
     setNotes(c.notes);
     setFormError(null);
     setFormOpen(true);
@@ -182,6 +191,9 @@ export const ConsumablesView: React.FC = () => {
         location,
         stock: Number(stock) || 0,
         min_stock: Number(minStock) || 0,
+        ideal_stock: Number(idealStock) || 4,
+        unit_cost: Number(unitCost) || 0,
+        page_yield: Number(pageYield) || 0,
         notes: notes.trim(),
       };
       if (editingItem) {
@@ -260,6 +272,10 @@ export const ConsumablesView: React.FC = () => {
     const totalModels = consumables.length;
     const totalPieces = consumables.reduce((acc, c) => acc + c.stock, 0);
     const lowStock = consumables.filter((c) => c.stock <= c.min_stock).length;
+    const toBuy = consumables.reduce(
+      (acc, c) => acc + Math.max(0, (c.ideal_stock || 4) - c.stock),
+      0
+    );
     const now = new Date();
     const monthOuts = movements
       .filter((m) => {
@@ -268,7 +284,7 @@ export const ConsumablesView: React.FC = () => {
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       })
       .reduce((acc, m) => acc + m.quantity, 0);
-    return { totalModels, totalPieces, lowStock, monthOuts };
+    return { totalModels, totalPieces, lowStock, toBuy, monthOuts };
   }, [consumables, movements]);
 
   return (
@@ -329,10 +345,13 @@ export const ConsumablesView: React.FC = () => {
         <div className="bg-white rounded-2xl border border-[#E6E8F0] p-4 shadow-2xs flex items-center justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Entregas del Mes
+              Por Comprar (a Ideal)
             </p>
             <p className="text-2xl font-display font-bold text-sky-700 mt-1 tabular-nums">
-              {kpis.monthOuts}
+              {kpis.toBuy}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5 tabular-nums">
+              {kpis.monthOuts} salidas este mes
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600">
@@ -466,8 +485,9 @@ export const ConsumablesView: React.FC = () => {
                     </th>
                     <th className="py-3 px-4">Tipo & Color</th>
                     <th className="py-3 px-4">Impresoras Compatibles</th>
-                    <th className="py-3 px-4">Sede</th>
-                    <th className="py-3 px-4 text-right">Stock</th>
+                    <th className="py-3 px-4">Costo / Rend.</th>
+                    <th className="py-3 px-4 text-right">Stock / Ideal</th>
+                    <th className="py-3 px-4 text-center">Comprar</th>
                     <th className="py-3 px-4 text-right">Acciones</th>
                   </tr>
                 </thead>
@@ -476,6 +496,8 @@ export const ConsumablesView: React.FC = () => {
                     const colorInfo = COLOR_DOT[c.color] || COLOR_DOT.NA;
                     const isOut = c.stock === 0;
                     const isLow = c.stock > 0 && c.stock <= c.min_stock;
+                    const ideal = c.ideal_stock || 4;
+                    const toBuy = Math.max(0, ideal - c.stock);
                     return (
                       <tr key={c.id} className="hover:bg-slate-50/80 transition">
                         <td className="py-3 px-4 sticky left-0 bg-white z-10 border-r border-[#E6E8F0] min-w-[230px]">
@@ -501,7 +523,7 @@ export const ConsumablesView: React.FC = () => {
                             </span>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-slate-600 max-w-[240px]">
+                        <td className="py-3 px-4 text-slate-600 max-w-[220px]">
                           {c.compatible_models ? (
                             <span className="truncate block" title={c.compatible_models}>
                               {c.compatible_models}
@@ -509,11 +531,23 @@ export const ConsumablesView: React.FC = () => {
                           ) : (
                             <span className="text-slate-400 italic">No especificado</span>
                           )}
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span className="font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md text-[10px] border border-sky-200">
+                          <span className="inline-block mt-1 font-bold text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded text-[10px] border border-sky-200">
                             {c.location}
                           </span>
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          {c.unit_cost > 0 ? (
+                            <div className="font-mono font-semibold text-slate-800 tabular-nums">
+                              ${c.unit_cost.toLocaleString('es-MX')}
+                            </div>
+                          ) : (
+                            <div className="text-slate-400 italic">Sin precio</div>
+                          )}
+                          {c.page_yield > 0 && (
+                            <div className="text-[10px] text-slate-400 tabular-nums">
+                              {c.page_yield.toLocaleString('es-MX')} págs
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-2">
@@ -529,9 +563,20 @@ export const ConsumablesView: React.FC = () => {
                               {c.stock}
                             </span>
                             <span className="text-[10px] text-slate-400 tabular-nums">
-                              mín. {c.min_stock}
+                              / {ideal}
                             </span>
                           </div>
+                        </td>
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          {toBuy > 0 ? (
+                            <span className="font-mono font-bold text-xs tabular-nums px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                              +{toBuy}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                              OK
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-1.5">
@@ -586,7 +631,7 @@ export const ConsumablesView: React.FC = () => {
                   })}
                   {filteredConsumables.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-slate-400 italic">
+                      <td colSpan={7} className="py-12 text-center text-slate-400 italic">
                         {consumables.length === 0
                           ? 'Aún no hay tóners o cartuchos registrados. Haz clic en "Nuevo Tóner / Cartucho" para comenzar.'
                           : 'No se encontraron consumibles con los filtros actuales.'}
@@ -825,6 +870,40 @@ export const ConsumablesView: React.FC = () => {
                     min={0}
                     value={minStock}
                     onChange={(e) => setMinStock(Number(e.target.value))}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-mono font-bold tabular-nums"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Stock Ideal:</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={idealStock}
+                    onChange={(e) => setIdealStock(Number(e.target.value))}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-mono font-bold tabular-nums"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Precio Unitario (MXN):</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={unitCost}
+                    onChange={(e) => setUnitCost(Number(e.target.value))}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-mono font-bold tabular-nums"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Rendimiento (páginas):</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={pageYield}
+                    onChange={(e) => setPageYield(Number(e.target.value))}
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-mono font-bold tabular-nums"
                   />
                 </div>

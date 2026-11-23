@@ -94,6 +94,9 @@ func runMigrations(db *sql.DB) error {
 		 WHERE assigned_to_user_id IS NOT NULL AND assigned_to_user_id != ''
 		   AND EXISTS (SELECT 1 FROM users WHERE users.id = assets.assigned_to_user_id AND users.department != '');`,
 		`UPDATE assets SET category = 'CAMARA' WHERE UPPER(category) = 'GOPRO';`,
+		"ALTER TABLE consumables ADD COLUMN ideal_stock INTEGER NOT NULL DEFAULT 4;",
+		"ALTER TABLE consumables ADD COLUMN unit_cost REAL NOT NULL DEFAULT 0;",
+		"ALTER TABLE consumables ADD COLUMN page_yield INTEGER NOT NULL DEFAULT 0;",
 	}
 	for _, alter := range alters {
 		_, _ = db.Exec(alter)
