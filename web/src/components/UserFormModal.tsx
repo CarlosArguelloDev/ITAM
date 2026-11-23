@@ -111,7 +111,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({ userToEdit, onClos
                 required
                 value={employeeCode}
                 onChange={(e) => setEmployeeCode(e.target.value)}
-                placeholder="ej. EMP-OPM-1050"
+                placeholder="ej. OPM-1050"
                 className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-mono font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
             </div>
