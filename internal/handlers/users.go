@@ -359,7 +359,7 @@ func (h *AppHandler) GetUserDiagram(w http.ResponseWriter, r *http.Request) {
 		}
 		// Celulares, Laptops, Workstations, iPads, Scanners son equipos directos del colaborador
 		switch a.Category {
-		case "LAPTOP", "WORKSTATION", "TELEFONO", "IPAD", "SCANNER", "TELEFONO FIJO", "GOPRO":
+		case "LAPTOP", "WORKSTATION", "TELEFONO", "IPAD", "SCANNER", "TELEFONO FIJO", "CAMARA":
 			return true
 		case "SIM-CARD":
 			return false

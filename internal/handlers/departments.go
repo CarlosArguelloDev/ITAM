@@ -413,7 +413,7 @@ func (h *AppHandler) GetDepartmentDiagram(w http.ResponseWriter, r *http.Request
 		nodeType := "peripheralNode"
 		if a.Category == "LAPTOP" || a.Category == "WORKSTATION" {
 			nodeType = "laptopNode"
-		} else if a.Category == "TELEFONO" || a.Category == "IPAD" || a.Category == "SCANNER" || a.Category == "TELEFONO FIJO" || a.Category == "GOPRO" {
+		} else if a.Category == "TELEFONO" || a.Category == "IPAD" || a.Category == "SCANNER" || a.Category == "TELEFONO FIJO" || a.Category == "CAMARA" {
 			nodeType = "phoneNode"
 		}
 
@@ -456,7 +456,7 @@ func (h *AppHandler) GetDepartmentDiagram(w http.ResponseWriter, r *http.Request
 			return false
 		}
 		switch a.Category {
-		case "LAPTOP", "WORKSTATION", "TELEFONO", "IPAD", "SCANNER", "TELEFONO FIJO", "GOPRO":
+		case "LAPTOP", "WORKSTATION", "TELEFONO", "IPAD", "SCANNER", "TELEFONO FIJO", "CAMARA":
 			return true
 		case "SIM-CARD":
 			return false
@@ -541,7 +541,7 @@ func (h *AppHandler) GetDepartmentDiagram(w http.ResponseWriter, r *http.Request
 			nType := "peripheralNode"
 			if dev.Category == "LAPTOP" || dev.Category == "WORKSTATION" {
 				nType = "laptopNode"
-			} else if dev.Category == "TELEFONO" || dev.Category == "IPAD" || dev.Category == "SCANNER" || dev.Category == "TELEFONO FIJO" || dev.Category == "GOPRO" {
+			} else if dev.Category == "TELEFONO" || dev.Category == "IPAD" || dev.Category == "SCANNER" || dev.Category == "TELEFONO FIJO" || dev.Category == "CAMARA" {
 				nType = "phoneNode"
 			}
 

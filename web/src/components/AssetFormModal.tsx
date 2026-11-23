@@ -29,7 +29,7 @@ const CATEGORY_OPTIONS: { value: AssetCategory; label: string }[] = [
   { value: 'TRITURADORA', label: 'Trituradora' },
   { value: 'CONTROL TV', label: 'Control Remoto TV' },
   { value: 'CONVERTIDOR DE MEDIOS', label: 'Convertidor de Medios' },
-  { value: 'GOPRO', label: 'Cámara / GoPro' },
+  { value: 'CAMARA', label: 'Cámara' },
   { value: 'RACK MOUNT TRAY', label: 'Rack Mount Tray' },
   { value: 'ADAPTADOR DE RED', label: 'Adaptador de Red' },
   { value: 'BOCINA', label: 'Bocina' },

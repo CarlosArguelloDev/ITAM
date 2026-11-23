@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   ProjectorScreen,
   BatteryCharging,
+  Camera,
   Package,
 } from '@phosphor-icons/react';
 
@@ -56,6 +57,9 @@ export const HardwareIcon: React.FC<HardwareIconProps> = ({ category, className 
   if (c === 'PROYECTOR') return <ProjectorScreen weight="duotone" className={`${className} text-amber-700`} />;
   if (c === 'NO-BREAK' || c === 'APC' || c.includes('BATERIA')) {
     return <BatteryCharging weight="duotone" className={`${className} text-emerald-700`} />;
+  }
+  if (c === 'CAMARA' || c === 'GOPRO') {
+    return <Camera weight="duotone" className={`${className} text-slate-700`} />;
   }
 
   return <Package weight="duotone" className={`${className} text-slate-500`} />;

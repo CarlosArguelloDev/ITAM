@@ -26,7 +26,7 @@ export type AssetCategory =
   | 'TRITURADORA'
   | 'CONTROL TV'
   | 'CONVERTIDOR DE MEDIOS'
-  | 'GOPRO'
+  | 'CAMARA'
   | 'RACK MOUNT TRAY'
   | 'ADAPTADOR DE RED'
   | 'BOCINA'

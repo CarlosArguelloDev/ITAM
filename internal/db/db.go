@@ -93,6 +93,7 @@ func runMigrations(db *sql.DB) error {
 		 SET department = (SELECT department FROM users WHERE users.id = assets.assigned_to_user_id)
 		 WHERE assigned_to_user_id IS NOT NULL AND assigned_to_user_id != ''
 		   AND EXISTS (SELECT 1 FROM users WHERE users.id = assets.assigned_to_user_id AND users.department != '');`,
+		`UPDATE assets SET category = 'CAMARA' WHERE UPPER(category) = 'GOPRO';`,
 	}
 	for _, alter := range alters {
 		_, _ = db.Exec(alter)
