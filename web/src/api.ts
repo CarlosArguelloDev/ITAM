@@ -98,6 +98,8 @@ export const api = {
     return fetchJSON<Asset[]>(`/assets${qs}`);
   },
   getAsset: (id: string) => fetchJSON<Asset>(`/assets/${id}`),
+  getNextAssetTag: (location: string, category: string) =>
+    fetchJSON<{ tag: string }>(`/assets/next-tag?location=${encodeURIComponent(location)}&category=${encodeURIComponent(category)}`),
   getAssetByTag: (tag: string) => fetchJSON<Asset>(`/assets/tag/${encodeURIComponent(tag)}`),
   createAsset: (data: Partial<Asset>) =>
     fetchJSON<Asset>('/assets', { method: 'POST', body: JSON.stringify(data) }),

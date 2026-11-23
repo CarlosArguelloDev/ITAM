@@ -132,6 +132,7 @@ func main() {
 		// Gestión de Activos (Assets)
 		api.Route("/assets", func(a chi.Router) {
 			a.Get("/", appHandler.ListAssets)
+			a.Get("/next-tag", appHandler.GetNextAssetTag)
 			a.Post("/", appHandler.CreateAsset)
 			a.Get("/{id}", appHandler.GetAsset)
 			a.Put("/{id}", appHandler.UpdateAsset)

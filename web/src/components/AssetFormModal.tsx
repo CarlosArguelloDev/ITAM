@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, AlertCircle } from 'lucide-react';
+import { X, Save, AlertCircle, RefreshCw } from 'lucide-react';
 import { Asset, AssetCategory, AssetStatus, User, LocationType, Department } from '../types';
 import { api } from '../api';
 
@@ -92,6 +92,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tagEditedManually, setTagEditedManually] = useState(false);
 
   useEffect(() => {
     api.getDepartments().then(setDepartments).catch(() => {});
@@ -131,11 +132,23 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
         setPeripheralConnector(s.connector || '');
       }
     } else {
-      // Default tag suggestion
-      const randomNum = Math.floor(1000 + Math.random() * 9000);
-      setAssetTag(`IT-AST-${randomNum}`);
+      setTagEditedManually(false);
     }
   }, [assetToEdit]);
+
+  useEffect(() => {
+    if (assetToEdit || tagEditedManually) return;
+    let cancelled = false;
+    api
+      .getNextAssetTag(location, category)
+      .then((res) => {
+        if (!cancelled && res?.tag) setAssetTag(res.tag);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [assetToEdit, location, category, tagEditedManually]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,13 +266,33 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
 
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Asset Tag (Único):</label>
-              <input
-                type="text"
-                value={assetTag}
-                onChange={(e) => setAssetTag(e.target.value)}
-                placeholder="Ej. IT-LAP-0042"
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 font-mono font-semibold text-slate-800"
-              />
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={assetTag}
+                  onChange={(e) => {
+                    setAssetTag(e.target.value);
+                    setTagEditedManually(true);
+                  }}
+                  placeholder="Ej. OPM-2611N-01"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 font-mono font-semibold text-slate-800"
+                />
+                {!assetToEdit && (
+                  <button
+                    type="button"
+                    title="Generar siguiente Asset Tag disponible"
+                    onClick={() => {
+                      setTagEditedManually(false);
+                      api.getNextAssetTag(location, category).then((res) => {
+                        if (res?.tag) setAssetTag(res.tag);
+                      }).catch(() => {});
+                    }}
+                    className="shrink-0 p-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-600 transition"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
 
             <div>

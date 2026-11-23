@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -160,6 +161,87 @@ func (h *AppHandler) getAssetByIDOrTag(w http.ResponseWriter, whereClause string
 	}
 
 	JSONResponse(w, http.StatusOK, a)
+}
+
+var categoryTagCodes = map[string]string{
+	"LAPTOP":               "N",
+	"MONITOR":              "M",
+	"DOCKING":              "DS",
+	"WORKSTATION":          "",
+	"AUDIFONOS":            "H",
+	"TELEFONO":             "C",
+	"TELEFONO FIJO":        "P",
+	"SIM-CARD":             "SIM",
+	"IMPRESORA":            "IMP",
+	"SCANNER":              "S",
+	"IPAD":                 "T",
+	"FIREWALL":             "F",
+	"SWITCH":               "SW",
+	"ACCESS POINT":         "AP",
+	"SERVER":               "SR",
+	"NVR":                  "NVR",
+	"DVR":                  "DVR",
+	"ROUTER":               "R",
+	"NO-BREAK":             "NB",
+	"PDU":                  "PDU",
+	"PROYECTOR":            "PJ",
+	"TELEVISION":           "TV",
+	"TRITURADORA":          "SH",
+	"CONTROL TV":           "CTV",
+	"CONVERTIDOR DE MEDIOS": "MC",
+	"CAMARA":               "VC",
+	"RACK MOUNT TRAY":      "RK",
+	"ADAPTADOR DE RED":     "AR",
+	"BOCINA":               "SPK",
+	"BATERIA":              "B",
+	"CARGADOR BATERIA":     "CB",
+	"QUEMADOR DE CD":       "QCD",
+	"PERIPHERAL":           "PER",
+	"OTHER":                "AST",
+}
+
+// GetNextAssetTag sugiere el siguiente Asset Tag disponible siguiendo la nomenclatura {SEDE}-{YYMM}{CODIGO}-{NN}
+func (h *AppHandler) GetNextAssetTag(w http.ResponseWriter, r *http.Request) {
+	loc := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("location")))
+	if loc != "OPM" && loc != "OMEX" {
+		loc = "OPM"
+	}
+	cat := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("category")))
+	code, ok := categoryTagCodes[cat]
+	if !ok {
+		code = "AST"
+	}
+
+	yymm := time.Now().Format("0601")
+	prefix := fmt.Sprintf("%s-%s%s-", loc, yymm, code)
+
+	rows, err := h.DB.Query("SELECT asset_tag FROM assets WHERE asset_tag LIKE ?", prefix+"%")
+	maxNum := 0
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var tag string
+			if err := rows.Scan(&tag); err == nil {
+				suffix := strings.TrimPrefix(tag, prefix)
+				if n, err := strconv.Atoi(suffix); err == nil && n > maxNum {
+					maxNum = n
+				}
+			}
+		}
+	}
+
+	nextNum := maxNum + 1
+	var candidate string
+	for {
+		candidate = fmt.Sprintf("%s%02d", prefix, nextNum)
+		var exists int
+		if err := h.DB.QueryRow("SELECT COUNT(*) FROM assets WHERE asset_tag = ?", candidate).Scan(&exists); err != nil || exists == 0 {
+			break
+		}
+		nextNum++
+	}
+
+	JSONResponse(w, http.StatusOK, map[string]string{"tag": candidate})
 }
 
 // CreateAsset da de alta un activo e inserta en el historial
