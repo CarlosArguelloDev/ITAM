@@ -194,9 +194,37 @@ const CustomPeripheralNode = ({ data }: { data: any }) => {
   );
 };
 
+const getUserIdFromPath = (): string | null => {
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  if (parts[0] === 'colaboradores' && parts[1]) {
+    try {
+      return decodeURIComponent(parts[1]);
+    } catch {
+      return parts[1];
+    }
+  }
+  return null;
+};
+
 export const UsersDiagramView: React.FC = () => {
   // Estado para alternar entre Tabla de Usuarios y Vista de Diagrama
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(() => getUserIdFromPath());
+
+  const selectUser = (userId: string | null) => {
+    setSelectedUserId(userId);
+    const targetPath = userId ? `/colaboradores/${encodeURIComponent(userId)}` : '/colaboradores';
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({ view: 'users', userId }, '', targetPath);
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setSelectedUserId(getUserIdFromPath());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Lista general de usuarios y filtros
   const [users, setUsers] = useState<User[]>([]);
@@ -654,7 +682,7 @@ export const UsersDiagramView: React.FC = () => {
                   return (
                     <tr
                       key={u.id}
-                      onClick={() => setSelectedUserId(u.id)}
+                      onClick={() => selectUser(u.id)}
                       className="hover:bg-[#F8FAFC] cursor-pointer transition group"
                     >
                       {/* Colaborador (Pinned Left) */}
@@ -787,7 +815,7 @@ export const UsersDiagramView: React.FC = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedUserId(u.id);
+                              selectUser(u.id);
                             }}
                             className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold text-xs px-2.5 py-1.5 rounded-lg shadow-xs transition hover:text-slate-900"
                             title="Ver diagrama de equipos y ficha del colaborador"
@@ -947,7 +975,7 @@ export const UsersDiagramView: React.FC = () => {
             onUserSaved={(savedUser) => {
               loadUsers();
               if (!editingUser) {
-                setSelectedUserId(savedUser.id);
+                selectUser(savedUser.id);
               }
             }}
           />
@@ -973,7 +1001,7 @@ export const UsersDiagramView: React.FC = () => {
               loadUsers();
             }}
             onOpenResponsiva={() => {
-              setSelectedUserId(assignTargetUser.id);
+              selectUser(assignTargetUser.id);
               setResponsivaModalOpen(true);
             }}
           />
@@ -989,7 +1017,7 @@ export const UsersDiagramView: React.FC = () => {
       <div className="bg-white px-5 py-3 rounded-2xl border border-[#E2E8F0] shadow-sm flex items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => setSelectedUserId(null)}
+            onClick={() => selectUser(null)}
             className="flex items-center gap-1.5 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl font-bold text-xs transition shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -1002,7 +1030,7 @@ export const UsersDiagramView: React.FC = () => {
             <span className="text-xs font-bold text-slate-500">Colaborador:</span>
             <select
               value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
+              onChange={(e) => selectUser(e.target.value)}
               className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
             >
               {users.map((u) => (
@@ -1569,7 +1597,7 @@ export const UsersDiagramView: React.FC = () => {
             if (selectedUserId) loadUserDetails(selectedUserId);
           }}
           onOpenResponsiva={() => {
-            setSelectedUserId(assignTargetUser.id);
+            selectUser(assignTargetUser.id);
             setResponsivaModalOpen(true);
           }}
         />

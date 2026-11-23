@@ -37,7 +37,9 @@ const PATH_TO_VIEW: Record<string, NavView> = {
 
 const getViewFromPath = (pathname: string): NavView => {
   const normalized = pathname.replace(/\/+$/, '') || '/';
-  return PATH_TO_VIEW[normalized] ?? 'dashboard';
+  if (PATH_TO_VIEW[normalized]) return PATH_TO_VIEW[normalized];
+  const firstSegment = '/' + normalized.split('/').filter(Boolean)[0];
+  return PATH_TO_VIEW[firstSegment] ?? 'dashboard';
 };
 
 export const App: React.FC = () => {

@@ -137,13 +137,41 @@ const CategoryBubbleNode = ({ data }: any) => {
   );
 };
 
+const getDeptFromPath = (): string | null => {
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  if (parts[0] === 'departamentos' && parts[1]) {
+    try {
+      return decodeURIComponent(parts[1]);
+    } catch {
+      return parts[1];
+    }
+  }
+  return null;
+};
+
 export const DepartmentsView: React.FC = () => {
   const [summaries, setSummaries] = useState<DepartmentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'SITES' | 'SPACES' | 'DEPTS'>('ALL');
 
-  const [selectedDept, setSelectedDept] = useState<string | null>(null);
+  const [selectedDept, setSelectedDept] = useState<string | null>(() => getDeptFromPath());
+
+  const selectDept = (deptName: string | null) => {
+    setSelectedDept(deptName);
+    const targetPath = deptName ? `/departamentos/${encodeURIComponent(deptName)}` : '/departamentos';
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({ view: 'departments', dept: deptName }, '', targetPath);
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setSelectedDept(getDeptFromPath());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
   const [diagramData, setDiagramData] = useState<DepartmentDiagramResponse | null>(null);
   const [activeTab, setActiveTab] = useState<'LIST' | 'DIAGRAM'>('LIST');
   const [selectedCategoryGroup, setSelectedCategoryGroup] = useState<{
@@ -404,7 +432,7 @@ export const DepartmentsView: React.FC = () => {
       setNewDeptModalOpen(false);
       setNewDeptName('');
       await loadSummaries();
-      setSelectedDept(created.name);
+      selectDept(created.name);
     } catch (err: any) {
       setDeptError(err.message || 'No se pudo crear el departamento/site');
     } finally {
@@ -609,7 +637,7 @@ export const DepartmentsView: React.FC = () => {
                   return (
                   <tr
                     key={d.name}
-                    onClick={() => setSelectedDept(d.name)}
+                    onClick={() => selectDept(d.name)}
                     className="hover:bg-sky-50/40 transition-colors cursor-pointer group"
                   >
                     <td className="py-3.5 px-6">
@@ -654,7 +682,7 @@ export const DepartmentsView: React.FC = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedDept(d.name);
+                            selectDept(d.name);
                           }}
                           className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold text-xs px-2.5 py-1.5 rounded-lg shadow-xs transition"
                         >
@@ -899,7 +927,7 @@ export const DepartmentsView: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => {
-              setSelectedDept(null);
+              selectDept(null);
               setDiagramData(null);
             }}
             className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition"
@@ -910,7 +938,7 @@ export const DepartmentsView: React.FC = () => {
 
           <select
             value={selectedDept}
-            onChange={(e) => setSelectedDept(e.target.value)}
+            onChange={(e) => selectDept(e.target.value)}
             className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
           >
             {summaries.map((d) => (
