@@ -196,4 +196,37 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(data),
   }),
+
+  // Consumibles (Tóners & Cartuchos)
+  getConsumables: () => fetchJSON<import('./types').Consumable[]>('/consumables'),
+  createConsumable: (data: Partial<import('./types').Consumable>) =>
+    fetchJSON<import('./types').Consumable>('/consumables', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateConsumable: (id: string, data: Partial<import('./types').Consumable>) =>
+    fetchJSON<import('./types').Consumable>(`/consumables/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteConsumable: (id: string) =>
+    fetchJSON<{ message: string }>(`/consumables/${id}`, { method: 'DELETE' }),
+  moveConsumable: (
+    id: string,
+    data: {
+      movement_type: 'IN' | 'OUT' | 'ADJUST';
+      quantity: number;
+      printer_asset_id?: string;
+      department?: string;
+      notes?: string;
+    }
+  ) =>
+    fetchJSON<import('./types').Consumable>(`/consumables/${id}/move`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getConsumableMovements: (consumableId?: string) =>
+    fetchJSON<import('./types').ConsumableMovement[]>(
+      consumableId ? `/consumables/movements?consumable_id=${encodeURIComponent(consumableId)}` : '/consumables/movements'
+    ),
 };

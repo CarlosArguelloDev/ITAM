@@ -100,3 +100,38 @@ CREATE TABLE IF NOT EXISTS audit_scans (
 CREATE INDEX IF NOT EXISTS idx_scans_campaign ON audit_scans(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_scans_asset ON audit_scans(asset_id);
 CREATE INDEX IF NOT EXISTS idx_scans_discrepancy ON audit_scans(discrepancy_type, resolved);
+
+-- Consumibles de Impresoras (Tóners, Cartuchos, Cintas, Tambores)
+CREATE TABLE IF NOT EXISTS consumables (
+    id TEXT PRIMARY KEY,
+    code TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK(kind IN ('TONER', 'CARTUCHO', 'CINTA', 'TAMBOR', 'OTRO')) DEFAULT 'TONER',
+    brand TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL CHECK(color IN ('NEGRO', 'CIAN', 'MAGENTA', 'AMARILLO', 'COLOR', 'NA')) DEFAULT 'NEGRO',
+    compatible_models TEXT NOT NULL DEFAULT '',
+    location TEXT NOT NULL CHECK(location IN ('OPM', 'OMEX')) DEFAULT 'OPM',
+    stock INTEGER NOT NULL DEFAULT 0,
+    min_stock INTEGER NOT NULL DEFAULT 2,
+    notes TEXT NOT NULL DEFAULT '',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_consumables_code ON consumables(code);
+CREATE INDEX IF NOT EXISTS idx_consumables_kind ON consumables(kind);
+CREATE INDEX IF NOT EXISTS idx_consumables_location ON consumables(location);
+
+CREATE TABLE IF NOT EXISTS consumable_movements (
+    id TEXT PRIMARY KEY,
+    consumable_id TEXT NOT NULL REFERENCES consumables(id) ON DELETE CASCADE,
+    movement_type TEXT NOT NULL CHECK(movement_type IN ('IN', 'OUT', 'ADJUST')),
+    quantity INTEGER NOT NULL,
+    printer_asset_id TEXT NULLABLE REFERENCES assets(id) ON DELETE SET NULL,
+    department TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_consumable_movements_item ON consumable_movements(consumable_id);
+CREATE INDEX IF NOT EXISTS idx_consumable_movements_created ON consumable_movements(created_at);

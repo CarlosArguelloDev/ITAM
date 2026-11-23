@@ -251,3 +251,37 @@ export interface PendingResponsivaItem {
   responsiva_status: ResponsivaStatus;
   created_at: string;
 }
+
+export type ConsumableKind = 'TONER' | 'CARTUCHO' | 'CINTA' | 'TAMBOR' | 'OTRO';
+export type ConsumableColor = 'NEGRO' | 'CIAN' | 'MAGENTA' | 'AMARILLO' | 'COLOR' | 'NA';
+
+export interface Consumable {
+  id: string;
+  code: string;
+  name: string;
+  kind: ConsumableKind;
+  brand: string;
+  color: ConsumableColor;
+  compatible_models: string;
+  location: LocationType;
+  stock: number;
+  min_stock: number;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConsumableMovement {
+  id: string;
+  consumable_id: string;
+  consumable_code: string;
+  consumable_name: string;
+  movement_type: 'IN' | 'OUT' | 'ADJUST';
+  quantity: number;
+  printer_asset_id?: string;
+  printer_tag?: string;
+  printer_model?: string;
+  department: string;
+  notes: string;
+  created_at: string;
+}

@@ -9,6 +9,7 @@ import { AuditsView } from './views/AuditsView';
 import { DiscrepanciesView } from './views/DiscrepanciesView';
 import { AlertsView } from './views/AlertsView';
 import { DocumentsView } from './views/DocumentsView';
+import { ConsumablesView } from './views/ConsumablesView';
 import { ScannerModal } from './components/ScannerModal';
 import { api } from './api';
 import { AuditCampaign, User } from './types';
@@ -18,6 +19,7 @@ const VIEW_TO_PATH: Record<NavView, string> = {
   assets: '/inventario',
   users: '/colaboradores',
   departments: '/departamentos',
+  consumables: '/consumibles',
   audits: '/auditorias',
   discrepancies: '/discrepancias',
   alerts: '/alertas',
@@ -29,6 +31,7 @@ const PATH_TO_VIEW: Record<string, NavView> = {
   '/inventario': 'assets',
   '/colaboradores': 'users',
   '/departamentos': 'departments',
+  '/consumibles': 'consumables',
   '/auditorias': 'audits',
   '/discrepancias': 'discrepancies',
   '/alertas': 'alerts',
@@ -119,6 +122,11 @@ export const App: React.FC = () => {
           title: 'Departamentos, Bodegas y Sites',
           subtitle: 'Asignación de infraestructura por área/bodega y diagramas separados por colaborador',
         };
+      case 'consumables':
+        return {
+          title: 'Tóners, Cartuchos y Consumibles',
+          subtitle: 'Control de stock, entradas, salidas hacia impresoras y alertas de reposición',
+        };
       case 'audits':
         return {
           title: 'Campañas e Historial de Auditorías',
@@ -179,6 +187,7 @@ export const App: React.FC = () => {
           {currentView === 'assets' && <AssetsView />}
           {currentView === 'users' && <UsersDiagramView />}
           {currentView === 'departments' && <DepartmentsView />}
+          {currentView === 'consumables' && <ConsumablesView />}
           {currentView === 'audits' && <AuditsView />}
           {currentView === 'discrepancies' && (
             <DiscrepanciesView onDiscrepancyResolved={loadGlobalBadges} />

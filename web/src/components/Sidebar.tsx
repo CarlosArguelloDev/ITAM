@@ -9,6 +9,7 @@ import {
   BellRinging,
   FileText,
   Buildings,
+  Drop,
   X,
 } from '@phosphor-icons/react';
 
@@ -17,6 +18,7 @@ export type NavView =
   | 'assets'
   | 'users'
   | 'departments'
+  | 'consumables'
   | 'audits'
   | 'discrepancies'
   | 'alerts'
@@ -46,6 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'assets' as NavView, label: 'Inventario', icon: Laptop },
     { id: 'users' as NavView, label: 'Colaboradores', icon: UsersThree },
     { id: 'departments' as NavView, label: 'Deptos & Sites', icon: Buildings },
+    { id: 'consumables' as NavView, label: 'Tóners & Cartuchos', icon: Drop },
   ];
 
   const controlItems = [

@@ -178,6 +178,16 @@ func main() {
 			aud.Post("/target-finish", appHandler.FinishTargetAudit)
 			aud.Post("/target-reconcile", appHandler.ReconcileTargetAsset)
 		})
+
+		// Consumibles de Impresoras (Tóners, Cartuchos, Cintas)
+		api.Route("/consumables", func(c chi.Router) {
+			c.Get("/", appHandler.ListConsumables)
+			c.Post("/", appHandler.CreateConsumable)
+			c.Get("/movements", appHandler.ListConsumableMovements)
+			c.Put("/{id}", appHandler.UpdateConsumable)
+			c.Delete("/{id}", appHandler.DeleteConsumable)
+			c.Post("/{id}/move", appHandler.MoveConsumable)
+		})
 	})
 	}
 

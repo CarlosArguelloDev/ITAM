@@ -309,3 +309,55 @@ type AlertItem struct {
 	UserName    *string   `json:"user_name,omitempty"`
 	Date        time.Time `json:"date"`
 }
+
+type Consumable struct {
+	ID               string    `json:"id"`
+	Code             string    `json:"code"`
+	Name             string    `json:"name"`
+	Kind             string    `json:"kind"`
+	Brand            string    `json:"brand"`
+	Color            string    `json:"color"`
+	CompatibleModels string    `json:"compatible_models"`
+	Location         string    `json:"location"`
+	Stock            int       `json:"stock"`
+	MinStock         int       `json:"min_stock"`
+	Notes            string    `json:"notes"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+type ConsumableMovement struct {
+	ID             string    `json:"id"`
+	ConsumableID   string    `json:"consumable_id"`
+	ConsumableCode string    `json:"consumable_code"`
+	ConsumableName string    `json:"consumable_name"`
+	MovementType   string    `json:"movement_type"`
+	Quantity       int       `json:"quantity"`
+	PrinterAssetID *string   `json:"printer_asset_id,omitempty"`
+	PrinterTag     *string   `json:"printer_tag,omitempty"`
+	PrinterModel   *string   `json:"printer_model,omitempty"`
+	Department     string    `json:"department"`
+	Notes          string    `json:"notes"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type CreateConsumableRequest struct {
+	Code             string `json:"code"`
+	Name             string `json:"name"`
+	Kind             string `json:"kind"`
+	Brand            string `json:"brand"`
+	Color            string `json:"color"`
+	CompatibleModels string `json:"compatible_models"`
+	Location         string `json:"location"`
+	Stock            int    `json:"stock"`
+	MinStock         int    `json:"min_stock"`
+	Notes            string `json:"notes"`
+}
+
+type ConsumableMovementRequest struct {
+	MovementType   string  `json:"movement_type"`
+	Quantity       int     `json:"quantity"`
+	PrinterAssetID *string `json:"printer_asset_id,omitempty"`
+	Department     string  `json:"department"`
+	Notes          string  `json:"notes"`
+}
