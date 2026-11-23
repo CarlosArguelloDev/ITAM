@@ -345,13 +345,10 @@ export const ConsumablesView: React.FC = () => {
         <div className="bg-white rounded-2xl border border-[#E6E8F0] p-4 shadow-2xs flex items-center justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Por Comprar (a Ideal)
+              Entregas del Mes
             </p>
             <p className="text-2xl font-display font-bold text-sky-700 mt-1 tabular-nums">
-              {kpis.toBuy}
-            </p>
-            <p className="text-[11px] text-slate-400 mt-0.5 tabular-nums">
-              {kpis.monthOuts} salidas este mes
+              {kpis.monthOuts}
             </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600">
@@ -485,9 +482,8 @@ export const ConsumablesView: React.FC = () => {
                     </th>
                     <th className="py-3 px-4">Tipo & Color</th>
                     <th className="py-3 px-4">Impresoras Compatibles</th>
-                    <th className="py-3 px-4">Costo / Rend.</th>
-                    <th className="py-3 px-4 text-right">Stock / Ideal</th>
-                    <th className="py-3 px-4 text-center">Comprar</th>
+                    <th className="py-3 px-4">Rendimiento</th>
+                    <th className="py-3 px-4 text-right">Stock</th>
                     <th className="py-3 px-4 text-right">Acciones</th>
                   </tr>
                 </thead>
@@ -496,8 +492,6 @@ export const ConsumablesView: React.FC = () => {
                     const colorInfo = COLOR_DOT[c.color] || COLOR_DOT.NA;
                     const isOut = c.stock === 0;
                     const isLow = c.stock > 0 && c.stock <= c.min_stock;
-                    const ideal = c.ideal_stock || 4;
-                    const toBuy = Math.max(0, ideal - c.stock);
                     return (
                       <tr key={c.id} className="hover:bg-slate-50/80 transition">
                         <td className="py-3 px-4 sticky left-0 bg-white z-10 border-r border-[#E6E8F0] min-w-[230px]">
@@ -536,47 +530,26 @@ export const ConsumablesView: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3 px-4 whitespace-nowrap">
-                          {c.unit_cost > 0 ? (
-                            <div className="font-mono font-semibold text-slate-800 tabular-nums">
-                              ${c.unit_cost.toLocaleString('es-MX')}
-                            </div>
-                          ) : (
-                            <div className="text-slate-400 italic">Sin precio</div>
-                          )}
-                          {c.page_yield > 0 && (
-                            <div className="text-[10px] text-slate-400 tabular-nums">
+                          {c.page_yield > 0 ? (
+                            <span className="font-mono font-semibold text-slate-700 tabular-nums">
                               {c.page_yield.toLocaleString('es-MX')} págs
-                            </div>
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic">—</span>
                           )}
                         </td>
                         <td className="py-3 px-4 text-right whitespace-nowrap">
-                          <div className="inline-flex items-center gap-2">
-                            <span
-                              className={`font-mono font-bold text-sm tabular-nums px-2.5 py-0.5 rounded-lg border ${
-                                isOut
-                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                  : isLow
-                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              }`}
-                            >
-                              {c.stock}
-                            </span>
-                            <span className="text-[10px] text-slate-400 tabular-nums">
-                              / {ideal}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-center whitespace-nowrap">
-                          {toBuy > 0 ? (
-                            <span className="font-mono font-bold text-xs tabular-nums px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
-                              +{toBuy}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                              OK
-                            </span>
-                          )}
+                          <span
+                            className={`font-mono font-bold text-sm tabular-nums px-2.5 py-0.5 rounded-lg border ${
+                              isOut
+                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                : isLow
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            }`}
+                          >
+                            {c.stock}
+                          </span>
                         </td>
                         <td className="py-3 px-4 text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-1.5">
@@ -631,7 +604,7 @@ export const ConsumablesView: React.FC = () => {
                   })}
                   {filteredConsumables.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-slate-400 italic">
+                      <td colSpan={6} className="py-12 text-center text-slate-400 italic">
                         {consumables.length === 0
                           ? 'Aún no hay tóners o cartuchos registrados. Haz clic en "Nuevo Tóner / Cartucho" para comenzar.'
                           : 'No se encontraron consumibles con los filtros actuales.'}
