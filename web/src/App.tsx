@@ -13,10 +13,55 @@ import { ScannerModal } from './components/ScannerModal';
 import { api } from './api';
 import { AuditCampaign, User } from './types';
 
+const VIEW_TO_PATH: Record<NavView, string> = {
+  dashboard: '/',
+  assets: '/inventario',
+  users: '/colaboradores',
+  departments: '/departamentos',
+  audits: '/auditorias',
+  discrepancies: '/discrepancias',
+  alerts: '/alertas',
+  documents: '/responsivas',
+};
+
+const PATH_TO_VIEW: Record<string, NavView> = {
+  '/': 'dashboard',
+  '/inventario': 'assets',
+  '/colaboradores': 'users',
+  '/departamentos': 'departments',
+  '/auditorias': 'audits',
+  '/discrepancias': 'discrepancies',
+  '/alertas': 'alerts',
+  '/responsivas': 'documents',
+};
+
+const getViewFromPath = (pathname: string): NavView => {
+  const normalized = pathname.replace(/\/+$/, '') || '/';
+  return PATH_TO_VIEW[normalized] ?? 'dashboard';
+};
+
 export const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<NavView>('dashboard');
+  const [currentView, setCurrentView] = useState<NavView>(() =>
+    getViewFromPath(window.location.pathname)
+  );
   const [scannerOpen, setScannerOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const navigateTo = (view: NavView) => {
+    setCurrentView(view);
+    const targetPath = VIEW_TO_PATH[view] || '/';
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({ view }, '', targetPath);
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentView(getViewFromPath(window.location.pathname));
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Datos globales compartidos
   const [campaigns, setCampaigns] = useState<AuditCampaign[]>([]);
@@ -103,7 +148,7 @@ export const App: React.FC = () => {
       {/* Barra Lateral Izquierda Fija */}
       <Sidebar
         currentView={currentView}
-        onNavigate={(v) => setCurrentView(v)}
+        onNavigate={navigateTo}
         discrepanciesCount={discrepanciesCount}
         alertsCount={alertsCount}
         pendingResponsivasCount={pendingResponsivasCount}
@@ -125,7 +170,7 @@ export const App: React.FC = () => {
         <main className="flex-1 overflow-y-auto">
           {currentView === 'dashboard' && (
             <DashboardView
-              onNavigate={(v) => setCurrentView(v)}
+              onNavigate={navigateTo}
               onOpenScanner={() => setScannerOpen(true)}
             />
           )}
