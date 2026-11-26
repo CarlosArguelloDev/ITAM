@@ -67,6 +67,8 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   const [assignedToUserId, setAssignedToUserId] = useState('');
   const [parentAssetId, setParentAssetId] = useState('');
   const [warrantyExpiry, setWarrantyExpiry] = useState('');
+  const [ipAddress, setIpAddress] = useState('');
+  const [macAddress, setMacAddress] = useState('');
 
   // Specs dinámicas según categoría
   // Laptop specs
@@ -111,6 +113,8 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
       setAssignedToUserId(assetToEdit.assigned_to_user_id || '');
       setParentAssetId(assetToEdit.parent_asset_id || '');
       setWarrantyExpiry(assetToEdit.warranty_expiry || '');
+      setIpAddress(assetToEdit.ip_address || '');
+      setMacAddress(assetToEdit.mac_address || '');
 
       const s = assetToEdit.specs || {};
       if (assetToEdit.category === 'LAPTOP') {
@@ -200,6 +204,8 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
         department: department.trim(),
         assigned_to_user_id: assignedToUserId ? assignedToUserId : undefined,
         parent_asset_id: parentAssetId ? parentAssetId : undefined,
+        ip_address: ipAddress.trim(),
+        mac_address: macAddress.trim().toUpperCase(),
         specs,
         warranty_expiry: warrantyExpiry || undefined,
       };
@@ -327,6 +333,34 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                 onChange={(e) => setModel(e.target.value)}
                 placeholder="Ej. Latitude 5440, WD19S"
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800 font-medium"
+              />
+            </div>
+          </div>
+
+          {/* Red (Opcional: IP y MAC) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">
+                Dirección IP <span className="text-slate-400 font-normal">(Opcional)</span>:
+              </label>
+              <input
+                type="text"
+                value={ipAddress}
+                onChange={(e) => setIpAddress(e.target.value)}
+                placeholder="Ej. 192.168.16.50"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 font-mono text-slate-800"
+              />
+            </div>
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">
+                Dirección MAC <span className="text-slate-400 font-normal">(Opcional)</span>:
+              </label>
+              <input
+                type="text"
+                value={macAddress}
+                onChange={(e) => setMacAddress(e.target.value)}
+                placeholder="Ej. AA:BB:CC:DD:EE:FF"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 font-mono uppercase text-slate-800"
               />
             </div>
           </div>

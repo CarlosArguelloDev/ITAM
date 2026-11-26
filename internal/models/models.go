@@ -91,6 +91,8 @@ type Asset struct {
 	ParentAssetTag   *string         `json:"parent_asset_tag,omitempty"`
 	Location         string          `json:"location"`
 	Department       string          `json:"department"`
+	IPAddress        string          `json:"ip_address"`
+	MACAddress       string          `json:"mac_address"`
 	Specs            json.RawMessage `json:"specs"`
 	WarrantyExpiry   *string         `json:"warranty_expiry,omitempty"`
 	LastAuditedAt    *time.Time      `json:"last_audited_at,omitempty"`
@@ -229,6 +231,8 @@ type CreateAssetRequest struct {
 	ParentAssetID    *string         `json:"parent_asset_id"`
 	Location         string          `json:"location"`
 	Department       string          `json:"department"`
+	IPAddress        string          `json:"ip_address"`
+	MACAddress       string          `json:"mac_address"`
 	Specs            json.RawMessage `json:"specs"`
 	WarrantyExpiry   *string         `json:"warranty_expiry"`
 }
@@ -244,6 +248,8 @@ type UpdateAssetRequest struct {
 	ParentAssetID    *string         `json:"parent_asset_id"`
 	Location         string          `json:"location"`
 	Department       string          `json:"department"`
+	IPAddress        string          `json:"ip_address"`
+	MACAddress       string          `json:"mac_address"`
 	Specs            json.RawMessage `json:"specs"`
 	WarrantyExpiry   *string         `json:"warranty_expiry"`
 }

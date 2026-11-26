@@ -27,7 +27,9 @@ func (h *AppHandler) ListAssets(w http.ResponseWriter, r *http.Request) {
 		SELECT a.id, a.asset_tag, a.serial_number, a.category, a.brand, a.model, a.status,
 		       a.assigned_to_user_id, u.full_name AS assigned_to_name,
 		       a.parent_asset_id, p.asset_tag AS parent_asset_tag,
-		       a.location, COALESCE(a.department, '') AS department, a.specs, a.warranty_expiry, a.last_audited_at, a.created_at
+		       a.location, COALESCE(a.department, '') AS department,
+		       COALESCE(a.ip_address, '') AS ip_address, COALESCE(a.mac_address, '') AS mac_address,
+		       a.specs, a.warranty_expiry, a.last_audited_at, a.created_at
 		FROM assets a
 		LEFT JOIN users u ON a.assigned_to_user_id = u.id
 		LEFT JOIN assets p ON a.parent_asset_id = p.id
@@ -36,9 +38,9 @@ func (h *AppHandler) ListAssets(w http.ResponseWriter, r *http.Request) {
 	args := []interface{}{}
 
 	if search != "" {
-		query += " AND (a.asset_tag LIKE ? OR a.serial_number LIKE ? OR a.brand LIKE ? OR a.model LIKE ?)"
+		query += " AND (a.asset_tag LIKE ? OR a.serial_number LIKE ? OR a.brand LIKE ? OR a.model LIKE ? OR a.ip_address LIKE ? OR a.mac_address LIKE ?)"
 		pattern := "%" + search + "%"
-		args = append(args, pattern, pattern, pattern, pattern)
+		args = append(args, pattern, pattern, pattern, pattern, pattern, pattern)
 	}
 
 	if category != "" {
@@ -84,7 +86,7 @@ func (h *AppHandler) ListAssets(w http.ResponseWriter, r *http.Request) {
 			&a.ID, &a.AssetTag, &a.SerialNumber, &a.Category, &a.Brand, &a.Model, &a.Status,
 			&a.AssignedToUserID, &a.AssignedToName,
 			&a.ParentAssetID, &a.ParentAssetTag,
-			&a.Location, &a.Department, &specsStr, &a.WarrantyExpiry, &lastAuditedStr, &a.CreatedAt,
+			&a.Location, &a.Department, &a.IPAddress, &a.MACAddress, &specsStr, &a.WarrantyExpiry, &lastAuditedStr, &a.CreatedAt,
 		); err != nil {
 			ErrorResponse(w, http.StatusInternalServerError, "Error al escanear activo: "+err.Error())
 			return
@@ -114,7 +116,9 @@ func (h *AppHandler) getAssetByIDOrTag(w http.ResponseWriter, whereClause string
 		SELECT a.id, a.asset_tag, a.serial_number, a.category, a.brand, a.model, a.status,
 		       a.assigned_to_user_id, u.full_name AS assigned_to_name,
 		       a.parent_asset_id, p.asset_tag AS parent_asset_tag,
-		       a.location, COALESCE(a.department, '') AS department, a.specs, a.warranty_expiry, a.last_audited_at, a.created_at
+		       a.location, COALESCE(a.department, '') AS department,
+		       COALESCE(a.ip_address, '') AS ip_address, COALESCE(a.mac_address, '') AS mac_address,
+		       a.specs, a.warranty_expiry, a.last_audited_at, a.created_at
 		FROM assets a
 		LEFT JOIN users u ON a.assigned_to_user_id = u.id
 		LEFT JOIN assets p ON a.parent_asset_id = p.id
@@ -128,7 +132,7 @@ func (h *AppHandler) getAssetByIDOrTag(w http.ResponseWriter, whereClause string
 		&a.ID, &a.AssetTag, &a.SerialNumber, &a.Category, &a.Brand, &a.Model, &a.Status,
 		&a.AssignedToUserID, &a.AssignedToName,
 		&a.ParentAssetID, &a.ParentAssetTag,
-		&a.Location, &a.Department, &specsStr, &a.WarrantyExpiry, &lastAuditedStr, &a.CreatedAt,
+		&a.Location, &a.Department, &a.IPAddress, &a.MACAddress, &specsStr, &a.WarrantyExpiry, &lastAuditedStr, &a.CreatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -143,7 +147,8 @@ func (h *AppHandler) getAssetByIDOrTag(w http.ResponseWriter, whereClause string
 
 	// Obtener activos hijos (satélites conectados a este activo)
 	childRows, err := h.DB.Query(`
-		SELECT id, asset_tag, serial_number, category, brand, model, status, location, COALESCE(department, ''), specs
+		SELECT id, asset_tag, serial_number, category, brand, model, status, location, COALESCE(department, ''),
+		       COALESCE(ip_address, ''), COALESCE(mac_address, ''), specs
 		FROM assets
 		WHERE parent_asset_id = ?
 	`, a.ID)
@@ -153,7 +158,7 @@ func (h *AppHandler) getAssetByIDOrTag(w http.ResponseWriter, whereClause string
 		for childRows.Next() {
 			var ch models.Asset
 			var chSpecs string
-			if err := childRows.Scan(&ch.ID, &ch.AssetTag, &ch.SerialNumber, &ch.Category, &ch.Brand, &ch.Model, &ch.Status, &ch.Location, &ch.Department, &chSpecs); err == nil {
+			if err := childRows.Scan(&ch.ID, &ch.AssetTag, &ch.SerialNumber, &ch.Category, &ch.Brand, &ch.Model, &ch.Status, &ch.Location, &ch.Department, &ch.IPAddress, &ch.MACAddress, &chSpecs); err == nil {
 				ch.Specs = json.RawMessage(chSpecs)
 				a.Children = append(a.Children, ch)
 			}
@@ -283,10 +288,12 @@ func (h *AppHandler) CreateAsset(w http.ResponseWriter, r *http.Request) {
 
 	_, err = tx.Exec(`
 		INSERT INTO assets (id, asset_tag, serial_number, category, brand, model, status,
-		                    assigned_to_user_id, parent_asset_id, location, department, specs, warranty_expiry)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		                    assigned_to_user_id, parent_asset_id, location, department, ip_address, mac_address, specs, warranty_expiry)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, newID, req.AssetTag, req.SerialNumber, req.Category, req.Brand, req.Model, req.Status,
-		req.AssignedToUserID, req.ParentAssetID, req.Location, req.Department, string(req.Specs), req.WarrantyExpiry)
+		req.AssignedToUserID, req.ParentAssetID, req.Location, req.Department,
+		strings.TrimSpace(req.IPAddress), strings.ToUpper(strings.TrimSpace(req.MACAddress)),
+		string(req.Specs), req.WarrantyExpiry)
 
 	if err != nil {
 		ErrorResponse(w, http.StatusConflict, "Error al crear activo (verifique tags o series duplicadas): "+err.Error())
@@ -353,11 +360,12 @@ func (h *AppHandler) UpdateAsset(w http.ResponseWriter, r *http.Request) {
 		UPDATE assets
 		SET asset_tag = ?, serial_number = ?, category = ?, brand = ?, model = ?,
 		    status = ?, assigned_to_user_id = ?, parent_asset_id = ?, location = ?,
-		    department = ?, specs = ?, warranty_expiry = ?
+		    department = ?, ip_address = ?, mac_address = ?, specs = ?, warranty_expiry = ?
 		WHERE id = ?
 	`, req.AssetTag, req.SerialNumber, req.Category, req.Brand, req.Model,
 		req.Status, req.AssignedToUserID, req.ParentAssetID, req.Location,
-		req.Department, string(req.Specs), req.WarrantyExpiry, id)
+		req.Department, strings.TrimSpace(req.IPAddress), strings.ToUpper(strings.TrimSpace(req.MACAddress)),
+		string(req.Specs), req.WarrantyExpiry, id)
 
 	if err != nil {
 		ErrorResponse(w, http.StatusInternalServerError, "Error al actualizar activo: "+err.Error())

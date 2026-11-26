@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS assets (
     parent_asset_id TEXT NULLABLE REFERENCES assets(id) ON DELETE SET NULL,
     location TEXT NOT NULL CHECK(location IN ('OPM', 'OMEX')),
     department TEXT NOT NULL DEFAULT '',
+    ip_address TEXT NOT NULL DEFAULT '',
+    mac_address TEXT NOT NULL DEFAULT '',
     specs TEXT NOT NULL DEFAULT '{}',
     warranty_expiry DATE NULLABLE,
     last_audited_at DATETIME NULLABLE,

@@ -97,6 +97,8 @@ func runMigrations(db *sql.DB) error {
 		"ALTER TABLE consumables ADD COLUMN ideal_stock INTEGER NOT NULL DEFAULT 4;",
 		"ALTER TABLE consumables ADD COLUMN unit_cost REAL NOT NULL DEFAULT 0;",
 		"ALTER TABLE consumables ADD COLUMN page_yield INTEGER NOT NULL DEFAULT 0;",
+		"ALTER TABLE assets ADD COLUMN ip_address TEXT NOT NULL DEFAULT '';",
+		"ALTER TABLE assets ADD COLUMN mac_address TEXT NOT NULL DEFAULT '';",
 	}
 	for _, alter := range alters {
 		_, _ = db.Exec(alter)

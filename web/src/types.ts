@@ -108,6 +108,8 @@ export interface Asset {
   parent_asset_tag?: string;
   location: LocationType;
   department?: string;
+  ip_address?: string;
+  mac_address?: string;
   specs: Record<string, any>;
   warranty_expiry?: string;
   last_audited_at?: string;

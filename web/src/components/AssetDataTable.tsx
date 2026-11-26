@@ -21,13 +21,14 @@ export type GroupByOption = 'none' | 'category' | 'status' | 'department' | 'loc
 export type SortField = 'asset_tag' | 'category' | 'serial_number' | 'status' | 'assigned_to_name' | 'location' | 'last_audited_at';
 
 interface ColumnConfig {
-  id: 'category' | 'serial_number' | 'status' | 'custody' | 'location' | 'last_audited_at';
+  id: 'category' | 'serial_number' | 'network' | 'status' | 'custody' | 'location' | 'last_audited_at';
   label: string;
 }
 
 const OPTIONAL_COLUMNS: ColumnConfig[] = [
   { id: 'category', label: 'Categoría' },
   { id: 'serial_number', label: 'Número de Serie' },
+  { id: 'network', label: 'IP / MAC' },
   { id: 'status', label: 'Estado' },
   { id: 'custody', label: 'Custodia' },
   { id: 'location', label: 'Sede / Área' },
@@ -69,6 +70,7 @@ export const AssetDataTable: React.FC<AssetDataTableProps> = ({
   const [visibleCols, setVisibleCols] = useState<Record<ColumnConfig['id'], boolean>>(() => ({
     category: defaultColumns.includes('category'),
     serial_number: defaultColumns.includes('serial_number'),
+    network: defaultColumns.includes('network'),
     status: defaultColumns.includes('status'),
     custody: defaultColumns.includes('custody'),
     location: defaultColumns.includes('location'),
@@ -103,6 +105,8 @@ export const AssetDataTable: React.FC<AssetDataTableProps> = ({
         (a.model || '').toLowerCase().includes(q) ||
         (a.category || '').toLowerCase().includes(q) ||
         (a.assigned_to_name || '').toLowerCase().includes(q) ||
+        (a.ip_address || '').toLowerCase().includes(q) ||
+        (a.mac_address || '').toLowerCase().includes(q) ||
         (a.department || '').toLowerCase().includes(q)
       );
     });
@@ -174,13 +178,15 @@ export const AssetDataTable: React.FC<AssetDataTableProps> = ({
   };
 
   const exportCSV = () => {
-    const headers = ['Tag', 'Marca', 'Modelo', 'Categoría', 'Serial', 'Estado', 'Custodia', 'Sede', 'Departamento'];
+    const headers = ['Tag', 'Marca', 'Modelo', 'Categoría', 'Serial', 'IP', 'MAC', 'Estado', 'Custodia', 'Sede', 'Departamento'];
     const rows = sortedAssets.map((a) => [
       a.asset_tag,
       a.brand,
       a.model,
       a.category,
       a.serial_number,
+      a.ip_address || '',
+      a.mac_address || '',
       a.status,
       a.assigned_to_name || 'En Stock',
       a.location,
@@ -283,6 +289,29 @@ export const AssetDataTable: React.FC<AssetDataTableProps> = ({
             <span>{a.serial_number || '—'}</span>
             <CopyButton value={a.serial_number} label="número de serie" />
           </div>
+        </td>
+      )}
+
+      {visibleCols.network && (
+        <td className="py-3 px-4 font-mono text-[11px] text-slate-600 whitespace-nowrap">
+          {a.ip_address || a.mac_address ? (
+            <div className="space-y-0.5">
+              {a.ip_address && (
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-800 font-semibold">{a.ip_address}</span>
+                  <CopyButton value={a.ip_address} label="IP" />
+                </div>
+              )}
+              {a.mac_address && (
+                <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                  <span>{a.mac_address}</span>
+                  <CopyButton value={a.mac_address} label="MAC" />
+                </div>
+              )}
+            </div>
+          ) : (
+            <span className="text-slate-400 italic">—</span>
+          )}
         </td>
       )}
 
@@ -579,6 +608,9 @@ export const AssetDataTable: React.FC<AssetDataTableProps> = ({
               )}
               {visibleCols.serial_number && (
                 <th className="py-3 px-4">{renderSortHeader('Número de Serie', 'serial_number')}</th>
+              )}
+              {visibleCols.network && (
+                <th className="py-3 px-4 font-semibold text-slate-500 whitespace-nowrap">IP / MAC</th>
               )}
               {visibleCols.status && (
                 <th className="py-3 px-4">{renderSortHeader('Estado', 'status')}</th>
