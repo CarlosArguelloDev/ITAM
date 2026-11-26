@@ -11,7 +11,7 @@ import urllib.parse
 import urllib.request
 
 REMOTE_URL = os.environ.get("REMOTE_SERVER", "http://192.168.16.132:8080").rstrip("/")
-LOCAL_PORT = int(os.environ.get("PORT", "8080"))
+LOCAL_PORT = int(os.environ.get("PORT", "3000"))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 PRINT_ROUTE_RE = re.compile(r"^/api/assets/([^/]+)/print-brother(?:\?.*)?$")
